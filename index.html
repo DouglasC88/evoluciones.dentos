@@ -496,11 +496,13 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
     </div>
 
     <div class="card">
-      <h2>👥 Resumen por paciente</h2>
+      <h2>👥 Resumen y orden por paciente</h2>
       <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-success" onclick="sortByPatient()">📑 Ordenar por paciente + fecha</button>
         <button class="btn btn-outline" onclick="togglePatientSummary()">Ver / ocultar resumen</button>
-        <small style="color:var(--gray-600);">Cuántas evoluciones tiene cada paciente en el conjunto cargado.</small>
+        <span id="sort-status" style="font-size:0.85rem;color:var(--gray-600);"></span>
       </div>
+      <small style="display:block;margin-top:6px;color:#666;">Al ordenar, las evoluciones del mismo paciente quedan juntas y la columna "Fila" se renumera al exportar.</small>
       <div id="patient-summary" class="hidden" style="margin-top:1rem;"></div>
     </div>
 
@@ -1296,6 +1298,37 @@ function ultraClean(v) {
     .replace(/[\x00-\x1F\x7F\u0085\u2028\u2029]+/g, ' ')
     .replace(/  +/g, ' ')
     .trim();
+}
+
+function sortByPatient() {
+  if (!S.rows.length) { alert('No hay datos cargados.'); return; }
+
+  // Orden: doc_pac (numérico si aplica, sino alfabético), luego fecha (YYYY-MM-DD),
+  // luego hora de inicio. Las filas sin doc_pac van al final.
+  const cmpStr = (a, b) => (a || '').localeCompare(b || '', 'es', { numeric: true });
+
+  S.rows.sort((a, b) => {
+    const da = (a.doc_pac || '').trim();
+    const db = (b.doc_pac || '').trim();
+    if (!da && db) return 1;
+    if (da && !db) return -1;
+    if (da !== db) return cmpStr(da, db);
+    const fa = (a.fecha || '').trim();
+    const fb = (b.fecha || '').trim();
+    if (fa !== fb) return cmpStr(fa, fb);
+    return cmpStr((a.h_inicio || '').trim(), (b.h_inicio || '').trim());
+  });
+
+  // Re-renderizar tabla desde página 1 y refrescar resumen si está visible
+  currentPage = 0;
+  renderTablePage();
+  const sum = document.getElementById('patient-summary');
+  if (sum && !sum.classList.contains('hidden')) {
+    sum.classList.add('hidden');
+    togglePatientSummary();
+  }
+  const st = document.getElementById('sort-status');
+  if (st) st.textContent = `✓ Ordenado por paciente (${S.rows.length} filas)`;
 }
 
 function togglePatientSummary() {
