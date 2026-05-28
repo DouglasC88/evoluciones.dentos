@@ -1314,6 +1314,13 @@ function exportData() {
     return;
   }
 
+  // Detectar duplicados (ignorando columna Fila auto-numerada)
+  const dupCheck = checkDuplicates(lines);
+  if (dupCheck.count > 0) {
+    const ok = confirm(`Se detectaron ${dupCheck.count} filas duplicadas (mismo paciente, fecha, hora y detalle).\n\nEjemplo: filas ${dupCheck.samples.join(', ')}\n\n¿Deseas descargar de todos modos?`);
+    if (!ok) return;
+  }
+
   const name = (document.getElementById('exp-name-data').value.trim() || 'evoluciones_dentos') + '.txt';
   // Codificar en Windows-1252 (igual que Excel "Texto delimitado por tabulaciones")
   // y agregar \r\n final como hace Excel
@@ -1332,6 +1339,21 @@ function exportChunks() {
   const numChunks = Math.ceil(total / chunkSize);
 
   if (!confirm(`Se generarán ${numChunks} archivos de hasta ${chunkSize} filas cada uno.\n\nTotal: ${total} filas en ${numChunks} archivos.\n\n¿Continuar?`)) return;
+
+  // Detectar duplicados en todo el conjunto antes de partir
+  const allLines = S.rows.map(r => {
+    const fields = [
+      0, r.doc_pac, r.doc_dr, r.tipo, r.detalle, r.fecha,
+      r.h_inicio, r.h_fin, r.h_llegada, r.objetivo,
+      r.dr_defecto, r.consecutivo,
+    ].map(ultraClean);
+    return fields.join('\t');
+  });
+  const dupCheck = checkDuplicates(allLines);
+  if (dupCheck.count > 0) {
+    const ok = confirm(`Se detectaron ${dupCheck.count} filas duplicadas (mismo paciente, fecha, hora y detalle).\n\nEjemplo: filas ${dupCheck.samples.join(', ')}\n\n¿Deseas continuar de todos modos?`);
+    if (!ok) return;
+  }
 
   for (let c = 0; c < numChunks; c++) {
     const start = c * chunkSize;
@@ -1360,6 +1382,26 @@ function exportChunks() {
   }
 
   alert(`Descargando ${numChunks} archivos. Súbelos a DentOS en orden:\n  ${baseName}_parte01_deXX.txt\n  ${baseName}_parte02_deXX.txt\n  ...`);
+}
+
+// Detecta filas duplicadas (mismo contenido excepto la columna Fila)
+function checkDuplicates(lines) {
+  const seen = new Map(); // key -> primera fila donde aparecio
+  const dupes = [];
+  lines.forEach((ln, i) => {
+    const cols = ln.split('\t');
+    // Ignorar columna 1 (Fila auto-numerada)
+    const key = cols.slice(1).join('\t');
+    if (seen.has(key)) {
+      dupes.push({row: i + 1, firstSeen: seen.get(key)});
+    } else {
+      seen.set(key, i + 1);
+    }
+  });
+  return {
+    count: dupes.length,
+    samples: dupes.slice(0, 5).map(d => `${d.row} (igual a ${d.firstSeen})`),
+  };
 }
 
 // Codifica string JS (UTF-16 interno) a Windows-1252 (1 byte por caracter)
