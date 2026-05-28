@@ -395,25 +395,14 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
       <input type="file" id="inp-main" class="hidden" accept=".xls,.xlsx,.txt,.csv,.tsv">
       <div id="info-main" class="hidden alert-box alert-success" style="margin-top:0.75rem;"></div>
 
-      <div style="margin-top:1rem;display:flex;flex-direction:column;gap:0.75rem;">
-        <div class="flex-row">
-          <span style="font-size:0.875rem;font-weight:600;">¿El archivo tiene encabezados?</span>
-          <label class="flex-row" style="cursor:pointer;gap:0.3rem;">
-            <input type="radio" name="hdrs" value="yes" checked> Sí
-          </label>
-          <label class="flex-row" style="cursor:pointer;gap:0.3rem;">
-            <input type="radio" name="hdrs" value="no"> No
-          </label>
-        </div>
-        <div id="hdr-row-wrap" class="flex-row" style="background:var(--gray-50);padding:0.625rem 0.875rem;border-radius:0.5rem;border:1px solid var(--gray-200);">
-          <span style="font-size:0.875rem;font-weight:600;">¿En qué fila están los encabezados?</span>
-          <input type="number" id="inp-hdr-row" value="1" min="1" max="20"
-            style="width:70px;text-align:center;font-weight:700;font-size:1rem;"
-            oninput="rerenderHeaders()">
-          <span style="font-size:0.8rem;color:var(--gray-500);">
-            (si hay filas de descripción o título antes de los encabezados, cambia este número)
-          </span>
-        </div>
+      <div style="margin-top:1rem;" class="flex-row">
+        <span style="font-size:0.875rem;font-weight:600;">¿El archivo tiene encabezados?</span>
+        <label class="flex-row" style="cursor:pointer;gap:0.3rem;">
+          <input type="radio" name="hdrs" value="yes" checked> Sí
+        </label>
+        <label class="flex-row" style="cursor:pointer;gap:0.3rem;">
+          <input type="radio" name="hdrs" value="no"> No
+        </label>
       </div>
     </div>
 
@@ -629,33 +618,39 @@ function setupDrop(zoneId, inputId, cb) {
   document.getElementById(inputId).addEventListener('change', e => { if (e.target.files[0]) cb(e.target.files[0]); });
 }
 
+// Encuentra la fila con más celdas no vacías dentro de las primeras 10 filas
+function detectHeaderRow(rows) {
+  let bestIdx = 0, bestCount = 0;
+  const limit = Math.min(rows.length, 10);
+  for (let i = 0; i < limit; i++) {
+    const count = rows[i].filter(c => String(c).trim() !== '').length;
+    if (count > bestCount) { bestCount = count; bestIdx = i; }
+  }
+  return bestIdx;
+}
+
 async function applyMainFile(file, rows) {
-  S._lastFileMain  = file;
-  S._lastFileRows  = rows;
+  S._lastFileMain = file;
+  S._lastFileRows = rows;
   S.hasHdrs = document.querySelector('input[name="hdrs"]:checked').value === 'yes';
 
-  const hdrRowWrap = document.getElementById('hdr-row-wrap');
-  if (hdrRowWrap) hdrRowWrap.style.display = S.hasHdrs ? '' : 'none';
-
   if (S.hasHdrs) {
-    const hdrIdx = Math.max(0, (parseInt(document.getElementById('inp-hdr-row').value) || 1) - 1);
-    const safeIdx = Math.min(hdrIdx, rows.length - 1);
-    S.srcHeaders = rows[safeIdx].map((h, i) => String(h||'').trim() || `Columna ${i+1}`);
-    S.rawRows    = rows.slice(safeIdx + 1);
+    const hdrIdx = detectHeaderRow(rows);
+    S.srcHeaders = rows[hdrIdx].map((h, i) => String(h||'').trim() || `Columna ${i+1}`);
+    S.rawRows    = rows.slice(hdrIdx + 1);
   } else {
     const maxC = Math.max(...rows.map(r => r.length));
     S.srcHeaders = Array.from({length: maxC}, (_, i) => `Columna ${i+1}`);
     S.rawRows    = rows;
   }
 
-  // Preview first few header names
-  const preview = S.srcHeaders.slice(0, 5).map(h => `<em>${esc(h)}</em>`).join(', ');
+  const preview = S.srcHeaders.slice(0, 6).map(h => `<strong>${esc(h)}</strong>`).join(' · ');
   const el = document.getElementById('info-main');
   el.classList.remove('hidden');
-  el.innerHTML = `✅ <strong>${esc(file.name)}</strong> — ${S.rawRows.length} filas · ${S.srcHeaders.length} columnas: ${preview}${S.srcHeaders.length > 5 ? '…' : ''}`;
+  el.innerHTML = `✅ <strong>${esc(file.name)}</strong> — ${S.rawRows.length} filas · ${S.srcHeaders.length} columnas detectadas<br>
+    <span style="font-size:0.8rem;color:#065f46;">Columnas: ${preview}${S.srcHeaders.length > 6 ? ' …' : ''}</span>`;
 }
 
-// Re-aplicar sin re-leer el archivo
 async function rerenderHeaders() {
   if (!S._lastFileRows) return;
   await applyMainFile(S._lastFileMain, S._lastFileRows);
