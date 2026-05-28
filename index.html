@@ -506,10 +506,10 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
       </div>
       <div class="export-row" style="margin-top:10px;">
         <label>Partir en bloques:</label>
-        <input type="number" id="exp-chunk-size" value="5000" min="100" max="20000" style="max-width:120px;">
+        <input type="number" id="exp-chunk-size" value="7500" min="100" max="20000" style="max-width:120px;">
         <span class="ext">filas/archivo</span>
         <button class="btn btn-success" onclick="exportChunks()">⬇ Exportar por bloques</button>
-        <small style="display:block;margin-top:6px;color:#666;">DentOS rechaza archivos muy grandes. Recomendado: 5000 filas por archivo.</small>
+        <small style="display:block;margin-top:6px;color:#666;">DentOS acepta hasta ~7500 filas por archivo. Si falla, baja a 5000.</small>
       </div>
 
       <div class="export-row">
