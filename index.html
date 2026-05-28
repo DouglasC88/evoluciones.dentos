@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Migrador de Evoluciones - DentOS</title>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <style>
 :root {
   --primary: #2563eb;
@@ -387,11 +388,11 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
     <div class="card">
       <h2>📂 Archivo de evoluciones (fuente)</h2>
       <div class="upload-zone" id="zone-main" onclick="document.getElementById('inp-main').click()">
-        <div class="icon">📄</div>
-        <p><strong>Haz clic o arrastra</strong> el archivo aquí</p>
-        <p>Formato TXT delimitado por tabulación (sin encabezados)</p>
+        <div class="icon">📊</div>
+        <p><strong>Haz clic o arrastra</strong> el archivo Excel aquí</p>
+        <p>Formatos aceptados: <strong>.xls · .xlsx</strong></p>
       </div>
-      <input type="file" id="inp-main" class="hidden" accept=".txt,.csv,.tsv">
+      <input type="file" id="inp-main" class="hidden" accept=".xls,.xlsx,.txt,.csv,.tsv">
       <div id="info-main" class="hidden alert-box alert-success" style="margin-top:0.75rem;"></div>
 
       <div style="margin-top:1rem;" class="flex-row">
@@ -413,10 +414,10 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
       </p>
       <div class="upload-zone" id="zone-docs" onclick="document.getElementById('inp-docs').click()">
         <div class="icon">👥</div>
-        <p><strong>Haz clic o arrastra</strong> el archivo de doctores</p>
-        <p>TXT delimitado por tabulación</p>
+        <p><strong>Haz clic o arrastra</strong> el archivo Excel de doctores</p>
+        <p>Formatos aceptados: <strong>.xls · .xlsx</strong></p>
       </div>
-      <input type="file" id="inp-docs" class="hidden" accept=".txt,.csv,.tsv">
+      <input type="file" id="inp-docs" class="hidden" accept=".xls,.xlsx,.txt,.csv,.tsv">
       <div id="info-docs" class="hidden alert-box alert-success" style="margin-top:0.75rem;"></div>
     </div>
 
@@ -565,9 +566,41 @@ const COLS = [
 ];
 
 /* ============================================================
-   FILE READING
+   FILE READING  (SheetJS para Excel, TSV fallback para txt)
 ============================================================ */
-function parseTSV(txt) {
+function isExcel(file) {
+  return /\.(xls|xlsx)$/i.test(file.name);
+}
+
+function readFileBuffer(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsArrayBuffer(file);
+  });
+}
+
+function readText(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsText(file, 'latin1');
+  });
+}
+
+async function parseFile(file) {
+  if (isExcel(file)) {
+    const buf  = await readFileBuffer(file);
+    const wb   = XLSX.read(buf, { type: 'array', cellDates: true, raw: false });
+    const ws   = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+    return data.filter(r => r.some(c => String(c).trim() !== ''))
+               .map(r => r.map(c => String(c ?? '').trim()));
+  }
+  // TSV / CSV fallback
+  const txt = await readText(file);
   return txt.replace(/\r\n/g,'\n').replace(/\r/g,'\n')
     .split('\n').filter(l => l.trim())
     .map(l => l.split('\t').map(c => c.trim()));
@@ -581,18 +614,8 @@ function setupDrop(zoneId, inputId, cb) {
   document.getElementById(inputId).addEventListener('change', e => { if (e.target.files[0]) cb(e.target.files[0]); });
 }
 
-function readText(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = e => res(e.target.result);
-    r.onerror = rej;
-    r.readAsText(file, 'latin1');
-  });
-}
-
 setupDrop('zone-main', 'inp-main', async file => {
-  const txt = await readText(file);
-  const rows = parseTSV(txt);
+  const rows = await parseFile(file);
   if (!rows.length) { alert('El archivo está vacío.'); return; }
   S.hasHdrs = document.querySelector('input[name="hdrs"]:checked').value === 'yes';
   if (S.hasHdrs) {
@@ -609,13 +632,16 @@ setupDrop('zone-main', 'inp-main', async file => {
 });
 
 setupDrop('zone-docs', 'inp-docs', async file => {
-  const txt = await readText(file);
-  const rows = parseTSV(txt).filter(r => !/^(doc|nombre|apellido)/i.test(r[0]));
-  S.doctors = rows.map(r => ({
-    doc: (r[0]||'').trim(),
-    nombre: (r[1]||'').trim(),
+  const rows = await parseFile(file);
+  if (!rows.length) { alert('El archivo de doctores está vacío.'); return; }
+  // Auto-detect if first row is header
+  const firstIsHeader = isNaN(Number(rows[0][0])) && rows[0][0] !== '';
+  const dataRows = firstIsHeader ? rows.slice(1) : rows;
+  S.doctors = dataRows.map(r => ({
+    doc:      (r[0]||'').trim(),
+    nombre:   (r[1]||'').trim(),
     apellido: (r[2]||'').trim(),
-  })).filter(d => d.doc);
+  })).filter(d => d.doc && !isNaN(Number(d.doc)));
   const el = document.getElementById('info-docs');
   el.classList.remove('hidden');
   el.innerHTML = `✅ <strong>${esc(file.name)}</strong> — ${S.doctors.length} doctores cargados`;
