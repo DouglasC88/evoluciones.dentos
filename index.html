@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Migrador de Evoluciones - DentOS</title>
+<style>
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-700: #374151;
+  --gray-900: #111827;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--gray-50);
+  color: var(--gray-900);
+  min-height: 100vh;
+}
+header {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  color: white;
+  padding: 1.25rem 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+header p { font-size: 0.8rem; opacity: 0.75; margin-top: 0.25rem; }
+.container { max-width: 1500px; margin: 0 auto; padding: 1.5rem 2rem; }
+
+/* STEPS */
+.steps {
+  display: flex;
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+.step {
+  flex: 1;
+  padding: 0.875rem 1rem;
+  text-align: center;
+  border-right: 1px solid var(--gray-200);
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
+}
+.step:last-child { border-right: none; }
+.step .step-num { font-weight: 800; font-size: 1.1rem; }
+.step .step-label { font-size: 0.72rem; margin-top: 0.2rem; color: var(--gray-500); }
+.step.active { background: var(--primary); color: white; }
+.step.active .step-label { color: rgba(255,255,255,0.8); }
+.step.done { background: #eff6ff; }
+.step.done .step-num { color: var(--primary); }
+
+/* SECTIONS */
+.section { display: none; }
+.section.active { display: block; }
+
+/* CARDS */
+.card {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.card h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gray-700);
+  border-bottom: 2px solid var(--gray-100);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+/* UPLOAD ZONE */
+.upload-zone {
+  border: 2px dashed var(--gray-300);
+  border-radius: 0.5rem;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--gray-50);
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--primary);
+  background: #eff6ff;
+}
+.upload-zone .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.upload-zone p { color: var(--gray-500); font-size: 0.85rem; margin-top: 0.25rem; }
+.upload-zone strong { color: var(--primary); }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+.btn-success { background: var(--success); color: white; }
+.btn-success:hover:not(:disabled) { background: #15803d; }
+.btn-warning { background: var(--warning); color: white; }
+.btn-warning:hover:not(:disabled) { background: #b45309; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-outline { background: white; color: var(--gray-700); border: 1px solid var(--gray-300); }
+.btn-outline:hover:not(:disabled) { background: var(--gray-50); border-color: var(--gray-400); }
+.btn-sm { padding: 0.35rem 0.75rem; font-size: 0.78rem; }
+.btn-xs { padding: 0.2rem 0.5rem; font-size: 0.72rem; }
+
+/* INPUTS */
+select, input[type="text"] {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 0.375rem;
+  font-size: 0.85rem;
+  background: white;
+  color: var(--gray-900);
+  width: 100%;
+}
+select:focus, input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+
+/* TAGS */
+.tag-req { background: #fee2e2; color: var(--danger); padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 0.68rem; font-weight: 700; }
+.tag-auto { background: #d1fae5; color: #065f46; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 0.68rem; font-weight: 700; }
+
+/* MAPPING */
+.map-grid {
+  display: grid;
+  grid-template-columns: 1fr 36px 1fr;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+.map-dest {
+  padding: 0.5rem 0.75rem;
+  background: var(--gray-100);
+  border-radius: 0.375rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.map-arrow { text-align: center; color: var(--gray-400); font-size: 1.1rem; }
+.map-auto-val {
+  padding: 0.5rem 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 0.375rem;
+  font-size: 0.8rem;
+  color: #065f46;
+}
+
+/* STATS */
+.stats-grid {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.stat-card {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  border: 1px solid var(--gray-200);
+  text-align: center;
+  min-width: 120px;
+  flex: 1;
+}
+.stat-card .num { font-size: 1.75rem; font-weight: 800; }
+.stat-card .lbl { font-size: 0.72rem; color: var(--gray-500); margin-top: 0.2rem; }
+
+/* TABLE */
+.table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: 0.5rem;
+}
+table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+thead { position: sticky; top: 0; z-index: 10; }
+th {
+  background: #1e3a5f;
+  color: white;
+  padding: 0.6rem 0.5rem;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 0.74rem;
+}
+th.col-auto { background: #134e3f; }
+td {
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: middle;
+}
+tr:hover td { background: #f8faff; }
+tr.row-selected td { background: #eff6ff !important; }
+td input[type="text"], td select {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.76rem;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  background: transparent;
+  width: 100%;
+  min-width: 0;
+}
+td input[type="text"]:hover, td select:hover { border-color: var(--gray-300); background: white; }
+td input[type="text"]:focus, td select:focus { border-color: var(--primary); background: white; box-shadow: none; }
+
+/* TYPE BUTTONS */
+.type-mass-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.type-btn {
+  padding: 0.35rem 0.75rem;
+  border: 2px solid var(--gray-300);
+  border-radius: 0.375rem;
+  background: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: all 0.15s;
+  color: var(--gray-700);
+}
+.type-btn:hover { border-color: var(--primary); color: var(--primary); }
+.type-E { --tc: #2563eb; }
+.type-EO { --tc: #7c3aed; }
+.type-P  { --tc: #d97706; }
+.type-C  { --tc: #059669; }
+.type-btn[data-t="E"]:hover  { border-color: #2563eb; color: #2563eb; }
+.type-btn[data-t="EO"]:hover { border-color: #7c3aed; color: #7c3aed; }
+.type-btn[data-t="P"]:hover  { border-color: #d97706; color: #d97706; }
+.type-btn[data-t="C"]:hover  { border-color: #059669; color: #059669; }
+
+/* TOOLBAR */
+.toolbar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0.875rem 1rem;
+  background: var(--gray-50);
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-200);
+  margin-bottom: 1rem;
+}
+
+/* FINDINGS */
+.finding-item {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.6rem 0.875rem;
+  border-radius: 0.375rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.83rem;
+  align-items: flex-start;
+}
+.finding-warning { background: #fffbeb; border-left: 3px solid var(--warning); }
+.finding-info    { background: #eff6ff; border-left: 3px solid var(--primary); }
+.finding-success { background: #f0fdf4; border-left: 3px solid var(--success); }
+
+/* EXPORT */
+.export-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--gray-50);
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-200);
+  margin-bottom: 0.75rem;
+}
+.export-row label { font-size: 0.85rem; font-weight: 600; min-width: 160px; }
+.export-row input[type="text"] { max-width: 280px; }
+.export-row .ext { color: var(--gray-500); font-size: 0.85rem; }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+}
+.modal h3 { margin-bottom: 1rem; font-size: 1.05rem; }
+.doctor-list { max-height: 320px; overflow-y: auto; margin-top: 0.75rem; }
+.doctor-item {
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.15s;
+}
+.doctor-item:hover { background: var(--gray-100); }
+.doctor-item .d-name { font-weight: 600; font-size: 0.875rem; }
+.doctor-item .d-doc  { color: var(--gray-500); font-size: 0.8rem; font-family: monospace; }
+
+/* HELPERS */
+.hidden { display: none !important; }
+.alert-box {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+.alert-success { background: #d1fae5; color: #065f46; }
+.alert-warning { background: #fef3c7; color: #92400e; }
+.divider { display: flex; align-items: center; gap: 0.75rem; margin: 1.5rem 0; }
+.divider hr { flex: 1; border: none; border-top: 1px solid var(--gray-200); }
+.divider span { font-size: 0.75rem; color: var(--gray-400); white-space: nowrap; }
+.hint { font-size: 0.72rem; color: var(--gray-400); font-style: italic; }
+.flex-row { display: flex; gap: 0.75rem; align-items: center; }
+.flex-end { display: flex; justify-content: flex-end; gap: 0.75rem; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🦷 Migrador de Evoluciones — DentOS</h1>
+  <p>Prepara, valida y exporta evoluciones en formato compatible con DentOS (TXT delimitado por tabulación)</p>
+</header>
+
+<div class="container">
+
+  <!-- STEP TABS -->
+  <div class="steps">
+    <div class="step active" id="tab-1" onclick="goToStep(1)">
+      <div class="step-num">1</div>
+      <div class="step-label">Cargar archivos</div>
+    </div>
+    <div class="step" id="tab-2" onclick="goToStep(2)">
+      <div class="step-num">2</div>
+      <div class="step-label">Mapeo de columnas</div>
+    </div>
+    <div class="step" id="tab-3" onclick="goToStep(3)">
+      <div class="step-num">3</div>
+      <div class="step-label">Vista previa y edición</div>
+    </div>
+    <div class="step" id="tab-4" onclick="goToStep(4)">
+      <div class="step-num">4</div>
+      <div class="step-label">Exportar</div>
+    </div>
+  </div>
+
+  <!-- =============================== STEP 1 =============================== -->
+  <div class="section active" id="sec-1">
+
+    <div class="card">
+      <h2>📂 Archivo de evoluciones (fuente)</h2>
+      <div class="upload-zone" id="zone-main" onclick="document.getElementById('inp-main').click()">
+        <div class="icon">📄</div>
+        <p><strong>Haz clic o arrastra</strong> el archivo aquí</p>
+        <p>Formato TXT delimitado por tabulación (sin encabezados)</p>
+      </div>
+      <input type="file" id="inp-main" class="hidden" accept=".txt,.csv,.tsv">
+      <div id="info-main" class="hidden alert-box alert-success" style="margin-top:0.75rem;"></div>
+
+      <div style="margin-top:1rem;" class="flex-row">
+        <span style="font-size:0.875rem;font-weight:600;">¿El archivo tiene encabezados?</span>
+        <label class="flex-row" style="cursor:pointer;gap:0.3rem;">
+          <input type="radio" name="hdrs" value="yes"> Sí, tiene encabezado en la primera fila
+        </label>
+        <label class="flex-row" style="cursor:pointer;gap:0.3rem;">
+          <input type="radio" name="hdrs" value="no" checked> No tiene encabezados
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>👨‍⚕️ Lista de doctores <span style="font-weight:400;color:var(--gray-400);font-size:0.85rem;">(opcional)</span></h2>
+      <p style="font-size:0.83rem;color:var(--gray-500);margin-bottom:1rem;">
+        Carga un archivo TXT con columnas: <strong>Documento</strong> · <strong>Primer nombre</strong> · <strong>Primer apellido</strong><br>
+        Esto permite buscar doctores por nombre y asignar su número de documento automáticamente.
+      </p>
+      <div class="upload-zone" id="zone-docs" onclick="document.getElementById('inp-docs').click()">
+        <div class="icon">👥</div>
+        <p><strong>Haz clic o arrastra</strong> el archivo de doctores</p>
+        <p>TXT delimitado por tabulación</p>
+      </div>
+      <input type="file" id="inp-docs" class="hidden" accept=".txt,.csv,.tsv">
+      <div id="info-docs" class="hidden alert-box alert-success" style="margin-top:0.75rem;"></div>
+    </div>
+
+    <div class="flex-end">
+      <button class="btn btn-primary" onclick="step1Continue()">Continuar al mapeo →</button>
+    </div>
+  </div>
+
+  <!-- =============================== STEP 2 =============================== -->
+  <div class="section" id="sec-2">
+    <div class="card">
+      <h2>🔗 Mapeo de columnas</h2>
+      <p style="font-size:0.83rem;color:var(--gray-500);margin-bottom:1.25rem;">
+        Relaciona cada columna de DentOS con la columna correspondiente de tu archivo.
+        Las columnas marcadas <span class="tag-req">obligatorio</span> son requeridas.
+        Las marcadas <span class="tag-auto">automático</span> se calculan solas.
+      </p>
+      <div class="map-grid" id="map-header" style="margin-bottom:0.5rem;">
+        <div style="font-weight:700;font-size:0.75rem;color:var(--gray-500);padding:0 0.5rem;">COLUMNA DESTINO (DentOS)</div>
+        <div></div>
+        <div style="font-weight:700;font-size:0.75rem;color:var(--gray-500);">COLUMNA ORIGEN (tu archivo)</div>
+      </div>
+      <div class="map-grid" id="map-rows"></div>
+    </div>
+    <div class="flex-between">
+      <button class="btn btn-outline" onclick="goToStep(1)">← Atrás</button>
+      <button class="btn btn-primary" onclick="step2Continue()">Procesar y previsualizar →</button>
+    </div>
+  </div>
+
+  <!-- =============================== STEP 3 =============================== -->
+  <div class="section" id="sec-3">
+
+    <div id="stats-area" class="stats-grid"></div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div>
+        <div style="font-size:0.75rem;font-weight:700;color:var(--gray-500);margin-bottom:0.4rem;">APLICAR TIPO MASIVO A SELECCIONADOS:</div>
+        <div class="type-mass-bar">
+          <button class="type-btn" data-t="E"  onclick="applyMassType('E')">E — Evolución General</button>
+          <button class="type-btn" data-t="EO" onclick="applyMassType('EO')">EO — Ortodoncia</button>
+          <button class="type-btn" data-t="P"  onclick="applyMassType('P')">P — Plan tratamiento</button>
+          <button class="type-btn" data-t="C"  onclick="applyMassType('C')">C — Creación cita</button>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <button class="btn btn-outline btn-sm" onclick="selectAll(true)">☑ Todo</button>
+      <button class="btn btn-outline btn-sm" onclick="selectAll(false)">☐ Ninguno</button>
+      <span id="sel-count" style="font-size:0.8rem;color:var(--gray-500);font-weight:600;"></span>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="table-wrapper" style="max-height:520px;overflow-y:auto;">
+        <table>
+          <thead id="tbl-head"></thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="flex-between" style="margin-top:1rem;">
+      <button class="btn btn-outline" onclick="goToStep(2)">← Atrás</button>
+      <button class="btn btn-primary" onclick="prepareExport()">Ver exportación →</button>
+    </div>
+  </div>
+
+  <!-- =============================== STEP 4 =============================== -->
+  <div class="section" id="sec-4">
+
+    <div class="card">
+      <h2>📊 Reporte de hallazgos</h2>
+      <div id="exp-stats" class="stats-grid"></div>
+      <div id="findings-box"></div>
+    </div>
+
+    <div class="card">
+      <h2>💾 Exportar archivos</h2>
+
+      <div class="export-row">
+        <label>Archivo de evoluciones:</label>
+        <input type="text" id="exp-name-data" value="evoluciones_dentos">
+        <span class="ext">.txt</span>
+        <button class="btn btn-success" onclick="exportData()">⬇ Exportar datos</button>
+      </div>
+
+      <div class="export-row">
+        <label>Reporte de hallazgos:</label>
+        <input type="text" id="exp-name-report" value="reporte_hallazgos">
+        <span class="ext">.txt</span>
+        <button class="btn btn-warning" onclick="exportReport()">⬇ Exportar reporte</button>
+      </div>
+    </div>
+
+    <div class="flex-between">
+      <button class="btn btn-outline" onclick="goToStep(3)">← Volver a vista previa</button>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ============================================================ DOCTOR MODAL -->
+<div class="modal-overlay hidden" id="doc-modal">
+  <div class="modal">
+    <h3>🔍 Buscar doctor</h3>
+    <input type="text" id="doc-search" placeholder="Buscar por nombre, apellido o número de documento..." oninput="filterDoctors()">
+    <div class="doctor-list" id="doc-list"></div>
+    <div style="margin-top:1rem;text-align:right;">
+      <button class="btn btn-outline btn-sm" onclick="closeDocModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   STATE
+============================================================ */
+const S = {
+  rawRows:    [],
+  srcHeaders: [],
+  hasHdrs:    false,
+  mapping:    {},
+  doctors:    [],
+  rows:       [],   // processed rows [{fila,doc_paciente,...}]
+  findings:   [],
+  selected:   new Set(),
+  docRowIdx:  null,
+};
+
+/* ============================================================
+   DESTINATION COLUMN DEFINITIONS
+============================================================ */
+const COLS = [
+  { key:'fila',         label:'Fila',              req:true,  auto:true,  hint:'Consecutivo automático' },
+  { key:'doc_pac',      label:'Documento paciente', req:true,  auto:false, hint:'Número documento' },
+  { key:'doc_dr',       label:'Documento doctor',   req:true,  auto:false, hint:'Número documento' },
+  { key:'tipo',         label:'Tipo',               req:true,  auto:false, hint:'E / EO / P / C' },
+  { key:'detalle',      label:'Detalle',            req:false, auto:false, hint:'Texto libre' },
+  { key:'fecha',        label:'Fecha evolución',    req:false, auto:false, hint:'YYYY-MM-DD (default: hoy)' },
+  { key:'h_inicio',     label:'Hora inicio',        req:false, auto:false, hint:'HH:MM:SS (default 12:00:00)' },
+  { key:'h_fin',        label:'Hora fin',           req:false, auto:false, hint:'HH:MM:SS (default 12:00:00)' },
+  { key:'h_llegada',    label:'Hora llegada',       req:false, auto:false, hint:'HH:MM:SS (default 12:00:00)' },
+  { key:'objetivo',     label:'Objetivo',           req:false, auto:false, hint:'Texto libre' },
+  { key:'dr_defecto',   label:'Doctor por defecto', req:false, auto:false, hint:'Número documento' },
+  { key:'consecutivo',  label:'Consecutivo',        req:false, auto:false, hint:'ID único tabla origen' },
+];
+
+/* ============================================================
+   FILE READING
+============================================================ */
+function parseTSV(txt) {
+  return txt.replace(/\r\n/g,'\n').replace(/\r/g,'\n')
+    .split('\n').filter(l => l.trim())
+    .map(l => l.split('\t').map(c => c.trim()));
+}
+
+function setupDrop(zoneId, inputId, cb) {
+  const z = document.getElementById(zoneId);
+  z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('drag-over'); });
+  z.addEventListener('dragleave', () => z.classList.remove('drag-over'));
+  z.addEventListener('drop', e => { e.preventDefault(); z.classList.remove('drag-over'); if (e.dataTransfer.files[0]) cb(e.dataTransfer.files[0]); });
+  document.getElementById(inputId).addEventListener('change', e => { if (e.target.files[0]) cb(e.target.files[0]); });
+}
+
+function readText(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsText(file, 'latin1');
+  });
+}
+
+setupDrop('zone-main', 'inp-main', async file => {
+  const txt = await readText(file);
+  const rows = parseTSV(txt);
+  if (!rows.length) { alert('El archivo está vacío.'); return; }
+  S.hasHdrs = document.querySelector('input[name="hdrs"]:checked').value === 'yes';
+  if (S.hasHdrs) {
+    S.srcHeaders = rows[0].map((h,i) => h || `Columna ${i+1}`);
+    S.rawRows = rows.slice(1);
+  } else {
+    const maxC = Math.max(...rows.map(r => r.length));
+    S.srcHeaders = Array.from({length: maxC}, (_,i) => `Columna ${i+1}`);
+    S.rawRows = rows;
+  }
+  const el = document.getElementById('info-main');
+  el.classList.remove('hidden');
+  el.innerHTML = `✅ <strong>${esc(file.name)}</strong> — ${S.rawRows.length} filas · ${S.srcHeaders.length} columnas detectadas`;
+});
+
+setupDrop('zone-docs', 'inp-docs', async file => {
+  const txt = await readText(file);
+  const rows = parseTSV(txt).filter(r => !/^(doc|nombre|apellido)/i.test(r[0]));
+  S.doctors = rows.map(r => ({
+    doc: (r[0]||'').trim(),
+    nombre: (r[1]||'').trim(),
+    apellido: (r[2]||'').trim(),
+  })).filter(d => d.doc);
+  const el = document.getElementById('info-docs');
+  el.classList.remove('hidden');
+  el.innerHTML = `✅ <strong>${esc(file.name)}</strong> — ${S.doctors.length} doctores cargados`;
+});
+
+/* ============================================================
+   STEP NAVIGATION
+============================================================ */
+function goToStep(n) {
+  [1,2,3,4].forEach(i => {
+    document.getElementById(`sec-${i}`).classList.toggle('active', i===n);
+    const t = document.getElementById(`tab-${i}`);
+    t.classList.toggle('active', i===n);
+    t.classList.toggle('done', i<n);
+  });
+}
+
+/* ============================================================
+   STEP 1 → 2
+============================================================ */
+function step1Continue() {
+  if (!S.rawRows.length) { alert('Carga el archivo de evoluciones primero.'); return; }
+  buildMappingUI();
+  goToStep(2);
+}
+
+/* ============================================================
+   STEP 2: MAPPING UI
+============================================================ */
+function buildMappingUI() {
+  const srcOpts = S.srcHeaders.map((h,i) => `<option value="${i}">${h}</option>`).join('');
+  const container = document.getElementById('map-rows');
+  container.innerHTML = '';
+
+  // Guess default mappings by column position (DentOS known order)
+  // fila=0, doc_pac=1, doc_dr=2, tipo=3, detalle=4, fecha=5, h_inicio=6, h_fin=7, h_llegada=8, objetivo=9, dr_defecto=10, consecutivo=11
+  const defOrder = { fila:0, doc_pac:1, doc_dr:2, tipo:3, detalle:4, fecha:5, h_inicio:6, h_fin:7, h_llegada:8, objetivo:9, dr_defecto:10, consecutivo:11 };
+
+  COLS.forEach(col => {
+    // Destination label cell
+    const destCell = document.createElement('div');
+    destCell.className = 'map-dest';
+    const badges = col.req ? '<span class="tag-req">obligatorio</span>' : '';
+    const autoBadge = col.auto ? '<span class="tag-auto">automático</span>' : '';
+    destCell.innerHTML = `${badges}${autoBadge} <span style="flex:1">${col.label}</span> <span class="hint">${col.hint}</span>`;
+
+    // Arrow
+    const arrow = document.createElement('div');
+    arrow.className = 'map-arrow';
+    arrow.textContent = '→';
+
+    // Source cell
+    const srcCell = document.createElement('div');
+
+    if (col.auto) {
+      srcCell.innerHTML = `<div class="map-auto-val">🔢 Se genera automáticamente (1, 2, 3…)</div>`;
+    } else {
+      // Try to auto-pick a default
+      const defIdx = defOrder[col.key];
+      const sel = document.createElement('select');
+      sel.id = `map-${col.key}`;
+      sel.innerHTML = `<option value="">— No mapear —</option>${srcOpts}`;
+      if (defIdx !== undefined && defIdx < S.srcHeaders.length) {
+        sel.value = String(defIdx);
+        S.mapping[col.key] = String(defIdx);
+      }
+      sel.onchange = () => { S.mapping[col.key] = sel.value; };
+      srcCell.appendChild(sel);
+    }
+
+    container.appendChild(destCell);
+    container.appendChild(arrow);
+    container.appendChild(srcCell);
+  });
+}
+
+/* ============================================================
+   STEP 2 → 3
+============================================================ */
+function step2Continue() {
+  const missing = COLS.filter(c => c.req && !c.auto && !S.mapping[c.key] && S.mapping[c.key] !== 0);
+  if (missing.length) {
+    alert('Faltan mapeos requeridos:\n' + missing.map(c => '• ' + c.label).join('\n'));
+    return;
+  }
+  processRows();
+  renderTable();
+  renderStats(document.getElementById('stats-area'));
+  goToStep(3);
+}
+
+/* ============================================================
+   DATA PROCESSING
+============================================================ */
+function getv(row, key) {
+  const idx = S.mapping[key];
+  if (idx === undefined || idx === '') return '';
+  const v = row[parseInt(idx)];
+  return v !== undefined ? cleanLineBreaks(v) : '';
+}
+
+function cleanLineBreaks(v) {
+  return String(v).replace(/[\r\n\t]+/g, ' ').trim();
+}
+
+function today() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function parseDate(v) {
+  if (!v || !v.trim()) return null;
+  v = v.trim();
+  // YYYY-MM-DD or YYYY/MM/DD
+  if (/^\d{4}[-/]\d{2}[-/]\d{2}$/.test(v)) return v.replace(/\//g,'-');
+  // DD/MM/YYYY or DD-MM-YYYY
+  const m = v.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  // Excel serial
+  const n = parseFloat(v);
+  if (!isNaN(n) && n > 40000) {
+    const d = new Date(Math.round((n - 25569)*86400*1000));
+    return d.toISOString().slice(0,10);
+  }
+  return null;
+}
+
+function parseTime(v) {
+  if (!v || !v.trim()) return null;
+  v = v.trim();
+  if (/^\d{1,2}:\d{2}:\d{2}$/.test(v)) {
+    const p = v.split(':');
+    return `${p[0].padStart(2,'0')}:${p[1]}:${p[2]}`;
+  }
+  if (/^\d{1,2}:\d{2}$/.test(v)) {
+    const p = v.split(':');
+    return `${p[0].padStart(2,'0')}:${p[1]}:00`;
+  }
+  return null;
+}
+
+function processRows() {
+  S.findings = [];
+  S.rows = S.rawRows.map((raw, i) => {
+    const r = {};
+    r.fila = i + 1; // auto
+
+    r.doc_pac    = getv(raw, 'doc_pac');
+    r.doc_dr     = getv(raw, 'doc_dr');
+
+    // Tipo
+    const rawTipo = getv(raw, 'tipo').toUpperCase();
+    if (['E','EO','P','C'].includes(rawTipo)) {
+      r.tipo = rawTipo;
+    } else {
+      r.tipo = 'E';
+      if (rawTipo) S.findings.push({sev:'warning', row:i+1, msg:`Tipo "${rawTipo}" no reconocido → asignado "E"`});
+    }
+
+    // Detalle / Objetivo (line breaks already cleaned by getv)
+    r.detalle   = getv(raw, 'detalle');
+    r.objetivo  = getv(raw, 'objetivo');
+
+    // Fecha
+    const rawF = getv(raw, 'fecha');
+    const pF   = parseDate(rawF);
+    if (pF) {
+      r.fecha = pF;
+    } else {
+      r.fecha = today();
+      S.findings.push({sev:'info', row:i+1, msg:`Sin fecha válida → fecha actual (${r.fecha})`});
+    }
+
+    // Horas
+    const rawHI = getv(raw, 'h_inicio');
+    const rawHF = getv(raw, 'h_fin');
+    const rawHL = getv(raw, 'h_llegada');
+
+    r.h_inicio  = parseTime(rawHI) || '12:00:00';
+    r.h_fin     = parseTime(rawHF) || '12:00:00';
+    r.h_llegada = parseTime(rawHL) || '12:00:00';
+
+    if (!parseTime(rawHI)) S.findings.push({sev:'info', row:i+1, msg:'Sin hora inicio → 12:00:00'});
+    if (!parseTime(rawHF)) S.findings.push({sev:'info', row:i+1, msg:'Sin hora fin → 12:00:00'});
+    if (!parseTime(rawHL)) S.findings.push({sev:'info', row:i+1, msg:'Sin hora llegada → 12:00:00'});
+
+    r.dr_defecto  = getv(raw, 'dr_defecto');
+    r.consecutivo = getv(raw, 'consecutivo');
+
+    // Validations
+    if (!r.doc_pac) S.findings.push({sev:'warning', row:i+1, msg:'Documento de paciente vacío'});
+    if (!r.doc_dr)  S.findings.push({sev:'warning', row:i+1, msg:'Documento de doctor vacío'});
+
+    return r;
+  });
+}
+
+/* ============================================================
+   STEP 3: TABLE
+============================================================ */
+function renderTable() {
+  const hasDocs = S.doctors.length > 0;
+
+  document.getElementById('tbl-head').innerHTML = `<tr>
+    <th><input type="checkbox" id="cb-all" onchange="selectAll(this.checked)" title="Seleccionar todo"></th>
+    <th>Fila</th>
+    <th>Doc. Paciente</th>
+    <th>Doc. Doctor</th>
+    <th>Tipo</th>
+    <th style="min-width:200px">Detalle</th>
+    <th>Fecha</th>
+    <th>H. Inicio</th>
+    <th>H. Fin</th>
+    <th>H. Llegada</th>
+    <th style="min-width:160px">Objetivo</th>
+    <th>Dr. Defecto</th>
+    <th>Consecutivo</th>
+    ${hasDocs ? '<th class="col-auto">Buscar Dr.</th>' : ''}
+  </tr>`;
+
+  document.getElementById('tbl-body').innerHTML = S.rows.map((r,i) => rowHTML(r, i, hasDocs)).join('');
+}
+
+function rowHTML(r, i, hasDocs) {
+  const sel = S.selected.has(i);
+  const typeOpts = ['E','EO','P','C'].map(t =>
+    `<option value="${t}" ${r.tipo===t?'selected':''}>${t}</option>`
+  ).join('');
+
+  return `<tr id="tr-${i}" class="${sel?'row-selected':''}">
+    <td style="width:30px;text-align:center;">
+      <input type="checkbox" class="cb-r" data-i="${i}" ${sel?'checked':''} onchange="toggleSel(${i},this.checked)">
+    </td>
+    <td style="width:40px;text-align:center;color:var(--gray-400);font-size:0.72rem;">${i+1}</td>
+    <td style="width:110px;"><input type="text" value="${esc(r.doc_pac)}"    onchange="upd(${i},'doc_pac',this.value)"></td>
+    <td style="width:110px;" id="td-dr-${i}"><input type="text" value="${esc(r.doc_dr)}" id="inp-dr-${i}" onchange="upd(${i},'doc_dr',this.value)"></td>
+    <td style="width:70px;"><select onchange="upd(${i},'tipo',this.value)">${typeOpts}</select></td>
+    <td><input type="text" value="${esc(r.detalle)}"    onchange="upd(${i},'detalle',this.value)"></td>
+    <td style="width:105px;"><input type="text" value="${esc(r.fecha)}"    onchange="upd(${i},'fecha',this.value)" placeholder="YYYY-MM-DD"></td>
+    <td style="width:85px;"><input type="text" value="${esc(r.h_inicio)}"  onchange="upd(${i},'h_inicio',this.value)"></td>
+    <td style="width:85px;"><input type="text" value="${esc(r.h_fin)}"     onchange="upd(${i},'h_fin',this.value)"></td>
+    <td style="width:85px;"><input type="text" value="${esc(r.h_llegada)}" onchange="upd(${i},'h_llegada',this.value)"></td>
+    <td><input type="text" value="${esc(r.objetivo)}"   onchange="upd(${i},'objetivo',this.value)"></td>
+    <td style="width:110px;"><input type="text" value="${esc(r.dr_defecto)}"  onchange="upd(${i},'dr_defecto',this.value)"></td>
+    <td style="width:100px;"><input type="text" value="${esc(r.consecutivo)}" onchange="upd(${i},'consecutivo',this.value)"></td>
+    ${hasDocs ? `<td style="width:60px;text-align:center;"><button class="btn btn-outline btn-xs" onclick="openDocModal(${i})">🔍 Dr</button></td>` : ''}
+  </tr>`;
+}
+
+function upd(i, key, val) {
+  S.rows[i][key] = val;
+}
+
+/* ============================================================
+   SELECTION
+============================================================ */
+function selectAll(checked) {
+  S.selected.clear();
+  if (checked) S.rows.forEach((_,i) => S.selected.add(i));
+  document.querySelectorAll('.cb-r').forEach(cb => {
+    const i = parseInt(cb.dataset.i);
+    cb.checked = checked;
+    const tr = document.getElementById(`tr-${i}`);
+    if (tr) tr.classList.toggle('row-selected', checked);
+  });
+  const cbAll = document.getElementById('cb-all');
+  if (cbAll) cbAll.checked = checked;
+  updateSelCount();
+}
+
+function toggleSel(i, checked) {
+  if (checked) S.selected.add(i); else S.selected.delete(i);
+  const tr = document.getElementById(`tr-${i}`);
+  if (tr) tr.classList.toggle('row-selected', checked);
+  updateSelCount();
+}
+
+function updateSelCount() {
+  const n = S.selected.size;
+  document.getElementById('sel-count').textContent = n > 0 ? `${n} seleccionado${n===1?'':'s'}` : '';
+}
+
+/* ============================================================
+   MASS TYPE
+============================================================ */
+function applyMassType(tipo) {
+  if (!S.selected.size) { alert('Selecciona filas primero (usa los checkboxes).'); return; }
+  S.selected.forEach(i => {
+    S.rows[i].tipo = tipo;
+    const sel = document.querySelector(`#tr-${i} select`);
+    if (sel) sel.value = tipo;
+  });
+}
+
+/* ============================================================
+   DOCTOR MODAL
+============================================================ */
+function openDocModal(i) {
+  S.docRowIdx = i;
+  document.getElementById('doc-search').value = '';
+  filterDoctors();
+  document.getElementById('doc-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('doc-search').focus(), 50);
+}
+
+function closeDocModal() {
+  document.getElementById('doc-modal').classList.add('hidden');
+  S.docRowIdx = null;
+}
+
+function filterDoctors() {
+  const q = document.getElementById('doc-search').value.toLowerCase();
+  const hits = S.doctors.filter(d =>
+    !q ||
+    d.nombre.toLowerCase().includes(q) ||
+    d.apellido.toLowerCase().includes(q) ||
+    d.doc.includes(q)
+  ).slice(0, 40);
+
+  document.getElementById('doc-list').innerHTML = hits.length
+    ? hits.map(d => `
+        <div class="doctor-item" onclick="pickDoc('${esc(d.doc)}')">
+          <span class="d-name">${esc(d.nombre)} ${esc(d.apellido)}</span>
+          <span class="d-doc">${esc(d.doc)}</span>
+        </div>`).join('')
+    : `<p style="color:var(--gray-500);font-size:0.83rem;padding:0.5rem 0;">Sin resultados</p>`;
+}
+
+function pickDoc(doc) {
+  const i = S.docRowIdx;
+  if (i !== null) {
+    S.rows[i].doc_dr = doc;
+    const inp = document.getElementById(`inp-dr-${i}`);
+    if (inp) inp.value = doc;
+  }
+  closeDocModal();
+}
+
+document.getElementById('doc-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('doc-modal')) closeDocModal();
+});
+
+/* ============================================================
+   STATS & FINDINGS
+============================================================ */
+function renderStats(container) {
+  const total = S.rows.length;
+  const warns = S.findings.filter(f => f.sev==='warning').length;
+  const infos = S.findings.filter(f => f.sev==='info').length;
+  const byType = S.rows.reduce((a, r) => { a[r.tipo]=(a[r.tipo]||0)+1; return a; }, {});
+
+  const colors = { E:'var(--primary)', EO:'#7c3aed', P:'var(--warning)', C:'var(--success)' };
+
+  container.innerHTML =
+    `<div class="stat-card"><div class="num" style="color:var(--primary)">${total}</div><div class="lbl">Total filas</div></div>` +
+    `<div class="stat-card"><div class="num" style="color:var(--danger)">${warns}</div><div class="lbl">Advertencias</div></div>` +
+    `<div class="stat-card"><div class="num" style="color:var(--warning)">${infos}</div><div class="lbl">Ajustes automáticos</div></div>` +
+    Object.entries(byType).map(([t,n]) =>
+      `<div class="stat-card"><div class="num" style="color:${colors[t]||'var(--gray-700)'}">${n}</div><div class="lbl">Tipo ${t}</div></div>`
+    ).join('');
+}
+
+function renderFindings(container) {
+  if (!S.findings.length) {
+    container.innerHTML = `<div class="finding-item finding-success">✅ Sin hallazgos. El archivo está listo para exportar.</div>`;
+    return;
+  }
+  // Group by row for readability
+  container.innerHTML = S.findings.map(f =>
+    `<div class="finding-item finding-${f.sev==='warning'?'warning':'info'}">
+       <span>${f.sev==='warning'?'⚠️':'ℹ️'}</span>
+       <div><strong>Fila ${f.row}:</strong> ${esc(f.msg)}</div>
+     </div>`
+  ).join('');
+}
+
+/* ============================================================
+   STEP 3 → 4
+============================================================ */
+function prepareExport() {
+  renderStats(document.getElementById('exp-stats'));
+  renderFindings(document.getElementById('findings-box'));
+  goToStep(4);
+}
+
+/* ============================================================
+   EXPORT
+============================================================ */
+function exportData() {
+  const lines = S.rows.map((r, i) => [
+    i+1,              // fila auto-renumbered
+    r.doc_pac,
+    r.doc_dr,
+    r.tipo,
+    r.detalle,
+    r.fecha,
+    r.h_inicio,
+    r.h_fin,
+    r.h_llegada,
+    r.objetivo,
+    r.dr_defecto,
+    r.consecutivo,
+  ].join('\t'));
+
+  const name = (document.getElementById('exp-name-data').value.trim() || 'evoluciones_dentos') + '.txt';
+  download(lines.join('\r\n'), name);
+}
+
+function exportReport() {
+  const total = S.rows.length;
+  const warns = S.findings.filter(f => f.sev==='warning');
+  const infos = S.findings.filter(f => f.sev==='info');
+  const byType = S.rows.reduce((a, r) => { a[r.tipo]=(a[r.tipo]||0)+1; return a; }, {});
+
+  const sep60 = '='.repeat(60);
+  const sep60d = '-'.repeat(60);
+  const lines = [
+    sep60,
+    'REPORTE DE HALLAZGOS - MIGRACIÓN DE EVOLUCIONES DENTOS',
+    sep60,
+    `Fecha generación  : ${new Date().toLocaleString('es-CO')}`,
+    `Total filas       : ${total}`,
+    `Advertencias      : ${warns.length}`,
+    `Ajustes automáticos: ${infos.length}`,
+    '',
+    sep60d,
+    'ADVERTENCIAS (requieren revisión):',
+    sep60d,
+    ...(warns.length ? warns.map(f => `  Fila ${f.row}: ${f.msg}`) : ['  Sin advertencias.']),
+    '',
+    sep60d,
+    'AJUSTES AUTOMÁTICOS (informativo):',
+    sep60d,
+    ...(infos.length ? infos.map(f => `  Fila ${f.row}: ${f.msg}`) : ['  Sin ajustes.']),
+    '',
+    sep60,
+    'RESUMEN POR TIPO DE EVOLUCIÓN:',
+    sep60,
+    ...Object.entries(byType).map(([t,n]) => `  ${t.padEnd(4)}: ${n} registro${n===1?'':'s'}`),
+    '',
+    sep60,
+  ];
+
+  const name = (document.getElementById('exp-name-report').value.trim() || 'reporte_hallazgos') + '.txt';
+  download(lines.join('\r\n'), name);
+}
+
+function download(content, filename) {
+  const bom = '﻿';
+  const blob = new Blob([bom + content], {type: 'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   HELPERS
+============================================================ */
+function esc(v) {
+  return String(v ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
