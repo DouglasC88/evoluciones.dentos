@@ -496,6 +496,15 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
     </div>
 
     <div class="card">
+      <h2>👥 Resumen por paciente</h2>
+      <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-outline" onclick="togglePatientSummary()">Ver / ocultar resumen</button>
+        <small style="color:var(--gray-600);">Cuántas evoluciones tiene cada paciente en el conjunto cargado.</small>
+      </div>
+      <div id="patient-summary" class="hidden" style="margin-top:1rem;"></div>
+    </div>
+
+    <div class="card">
       <h2>💾 Exportar archivos</h2>
 
       <div class="export-row">
@@ -1287,6 +1296,50 @@ function ultraClean(v) {
     .replace(/[\x00-\x1F\x7F\u0085\u2028\u2029]+/g, ' ')
     .replace(/  +/g, ' ')
     .trim();
+}
+
+function togglePatientSummary() {
+  const el = document.getElementById('patient-summary');
+  if (!el.classList.contains('hidden')) {
+    el.classList.add('hidden');
+    return;
+  }
+  if (!S.rows.length) { alert('No hay datos cargados.'); return; }
+
+  const counts = new Map();
+  S.rows.forEach(r => {
+    const k = (r.doc_pac || '').trim() || '(sin documento)';
+    counts.set(k, (counts.get(k) || 0) + 1);
+  });
+
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const total = S.rows.length;
+  const uniquePac = sorted.length;
+
+  let html = `<div style="margin-bottom:0.75rem;font-size:0.9rem;color:var(--gray-600);">
+    <strong>${uniquePac}</strong> paciente(s) distintos &nbsp;·&nbsp; <strong>${total}</strong> evoluciones en total
+  </div>
+  <div style="max-height:420px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+      <thead><tr style="background:var(--gray-50);position:sticky;top:0;">
+        <th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--gray-200);">Doc. Paciente</th>
+        <th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--gray-200);">Evoluciones</th>
+        <th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--gray-200);">% del total</th>
+      </tr></thead>
+      <tbody>`;
+
+  sorted.forEach(([doc, cnt], idx) => {
+    const pct = ((cnt / total) * 100).toFixed(1);
+    html += `<tr style="${idx % 2 ? 'background:var(--gray-50);' : ''}">
+      <td style="padding:6px 12px;font-family:monospace;">${esc(doc)}</td>
+      <td style="padding:6px 12px;text-align:right;font-weight:600;">${cnt}</td>
+      <td style="padding:6px 12px;text-align:right;color:var(--gray-500);">${pct}%</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  el.innerHTML = html;
+  el.classList.remove('hidden');
 }
 
 function exportData() {
