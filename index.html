@@ -1286,10 +1286,11 @@ function exportData() {
     r.objetivo,
     r.dr_defecto,
     r.consecutivo,
-  ].join('\t'));
+  ].map(v => stripBreaks(String(v ?? ''))).join('\t'));
 
   const name = (document.getElementById('exp-name-data').value.trim() || 'evoluciones_dentos') + '.txt';
-  download(lines.join('\r\n'), name);
+  // Excel "Texto delimitado por tabulaciones" termina con \r\n final
+  download(lines.join('\r\n') + '\r\n', name);
 }
 
 function exportReport() {
