@@ -398,10 +398,10 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
       <div style="margin-top:1rem;" class="flex-row">
         <span style="font-size:0.875rem;font-weight:600;">¿El archivo tiene encabezados?</span>
         <label class="flex-row" style="cursor:pointer;gap:0.3rem;">
-          <input type="radio" name="hdrs" value="yes"> Sí, tiene encabezado en la primera fila
+          <input type="radio" name="hdrs" value="yes" checked> Sí, tiene encabezado en la primera fila
         </label>
         <label class="flex-row" style="cursor:pointer;gap:0.3rem;">
-          <input type="radio" name="hdrs" value="no" checked> No tiene encabezados
+          <input type="radio" name="hdrs" value="no"> No tiene encabezados
         </label>
       </div>
     </div>
@@ -538,13 +538,16 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
 const S = {
   rawRows:    [],
   srcHeaders: [],
-  hasHdrs:    false,
+  hasHdrs:    true,
   mapping:    {},
   doctors:    [],
-  rows:       [],   // processed rows [{fila,doc_paciente,...}]
+  rows:       [],
   findings:   [],
   selected:   new Set(),
   docRowIdx:  null,
+  docDrMode:  'map',    // 'map' | 'manual'
+  docDrFixed: '',       // número fijo cuando mode='manual'
+  _lastFileMain: null,  // referencia para re-parsear al cambiar radio
 };
 
 /* ============================================================
@@ -614,12 +617,11 @@ function setupDrop(zoneId, inputId, cb) {
   document.getElementById(inputId).addEventListener('change', e => { if (e.target.files[0]) cb(e.target.files[0]); });
 }
 
-setupDrop('zone-main', 'inp-main', async file => {
-  const rows = await parseFile(file);
-  if (!rows.length) { alert('El archivo está vacío.'); return; }
+async function applyMainFile(file, rows) {
+  S._lastFileMain = file;
   S.hasHdrs = document.querySelector('input[name="hdrs"]:checked').value === 'yes';
   if (S.hasHdrs) {
-    S.srcHeaders = rows[0].map((h,i) => h || `Columna ${i+1}`);
+    S.srcHeaders = rows[0].map((h,i) => String(h||'').trim() || `Columna ${i+1}`);
     S.rawRows = rows.slice(1);
   } else {
     const maxC = Math.max(...rows.map(r => r.length));
@@ -629,6 +631,21 @@ setupDrop('zone-main', 'inp-main', async file => {
   const el = document.getElementById('info-main');
   el.classList.remove('hidden');
   el.innerHTML = `✅ <strong>${esc(file.name)}</strong> — ${S.rawRows.length} filas · ${S.srcHeaders.length} columnas detectadas`;
+}
+
+setupDrop('zone-main', 'inp-main', async file => {
+  const rows = await parseFile(file);
+  if (!rows.length) { alert('El archivo está vacío.'); return; }
+  await applyMainFile(file, rows);
+});
+
+// Re-parsear encabezados al cambiar radio sin recargar el archivo
+document.querySelectorAll('input[name="hdrs"]').forEach(r => {
+  r.addEventListener('change', async () => {
+    if (!S._lastFileMain) return;
+    const rows = await parseFile(S._lastFileMain);
+    if (rows.length) await applyMainFile(S._lastFileMain, rows);
+  });
 });
 
 setupDrop('zone-docs', 'inp-docs', async file => {
@@ -681,10 +698,10 @@ function buildMappingUI() {
   const defOrder = { fila:0, doc_pac:1, doc_dr:2, tipo:3, detalle:4, fecha:5, h_inicio:6, h_fin:7, h_llegada:8, objetivo:9, dr_defecto:10, consecutivo:11 };
 
   COLS.forEach(col => {
-    // Destination label cell
+    // Destination label
     const destCell = document.createElement('div');
     destCell.className = 'map-dest';
-    const badges = col.req ? '<span class="tag-req">obligatorio</span>' : '';
+    const badges    = col.req  ? '<span class="tag-req">obligatorio</span>' : '';
     const autoBadge = col.auto ? '<span class="tag-auto">automático</span>' : '';
     destCell.innerHTML = `${badges}${autoBadge} <span style="flex:1">${col.label}</span> <span class="hint">${col.hint}</span>`;
 
@@ -698,8 +715,43 @@ function buildMappingUI() {
 
     if (col.auto) {
       srcCell.innerHTML = `<div class="map-auto-val">🔢 Se genera automáticamente (1, 2, 3…)</div>`;
+
+    } else if (col.key === 'doc_dr') {
+      // Special: two modes
+      srcCell.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+          <div style="display:flex;gap:0.4rem;">
+            <button id="btn-dr-map"    class="btn btn-sm ${S.docDrMode==='map'    ? 'btn-primary' : 'btn-outline'}" onclick="setDrMode('map')"   >📋 Columna del archivo</button>
+            <button id="btn-dr-manual" class="btn btn-sm ${S.docDrMode==='manual' ? 'btn-primary' : 'btn-outline'}" onclick="setDrMode('manual')">✏️ Número fijo (un solo Dr.)</button>
+          </div>
+          <div id="dr-src-map" style="${S.docDrMode==='map' ? '' : 'display:none'}">
+            <select id="map-doc_dr" onchange="S.mapping['doc_dr']=this.value">
+              <option value="">— No mapear —</option>${srcOpts}
+            </select>
+          </div>
+          <div id="dr-src-manual" style="${S.docDrMode==='manual' ? '' : 'display:none'}">
+            <input type="text" id="inp-dr-fixed" placeholder="Ingresa el número de documento del doctor"
+              value="${esc(S.docDrFixed)}" oninput="S.docDrFixed=this.value.trim()"
+              style="max-width:320px;">
+            <div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.25rem;">
+              Este número se aplicará a <strong>todas</strong> las filas.
+            </div>
+          </div>
+        </div>`;
+      // Set saved dropdown value
+      if (S.docDrMode === 'map') {
+        const defIdx = defOrder['doc_dr'];
+        if (defIdx !== undefined && defIdx < S.srcHeaders.length) {
+          S.mapping['doc_dr'] = String(defIdx);
+        }
+        // Defer to next tick so the element is in DOM
+        setTimeout(() => {
+          const sel = document.getElementById('map-doc_dr');
+          if (sel && S.mapping['doc_dr']) sel.value = S.mapping['doc_dr'];
+        }, 0);
+      }
+
     } else {
-      // Try to auto-pick a default
       const defIdx = defOrder[col.key];
       const sel = document.createElement('select');
       sel.id = `map-${col.key}`;
@@ -719,12 +771,34 @@ function buildMappingUI() {
 }
 
 /* ============================================================
+   DOCTOR MODE TOGGLE
+============================================================ */
+function setDrMode(mode) {
+  S.docDrMode = mode;
+  document.getElementById('btn-dr-map').className    = `btn btn-sm ${mode==='map'    ? 'btn-primary' : 'btn-outline'}`;
+  document.getElementById('btn-dr-manual').className = `btn btn-sm ${mode==='manual' ? 'btn-primary' : 'btn-outline'}`;
+  document.getElementById('dr-src-map').style.display    = mode === 'map'    ? '' : 'none';
+  document.getElementById('dr-src-manual').style.display = mode === 'manual' ? '' : 'none';
+}
+
+/* ============================================================
    STEP 2 → 3
 ============================================================ */
 function step2Continue() {
-  const missing = COLS.filter(c => c.req && !c.auto && !S.mapping[c.key] && S.mapping[c.key] !== 0);
+  const missing = COLS.filter(c => {
+    if (!c.req || c.auto) return false;
+    if (c.key === 'doc_dr') {
+      if (S.docDrMode === 'manual') return !S.docDrFixed.trim();
+      return !S.mapping[c.key] && S.mapping[c.key] !== 0;
+    }
+    return !S.mapping[c.key] && S.mapping[c.key] !== 0;
+  });
   if (missing.length) {
-    alert('Faltan mapeos requeridos:\n' + missing.map(c => '• ' + c.label).join('\n'));
+    const msgs = missing.map(c => {
+      if (c.key === 'doc_dr' && S.docDrMode === 'manual') return '• Documento doctor: ingresa el número fijo';
+      return '• ' + c.label;
+    });
+    alert('Faltan campos requeridos:\n' + msgs.join('\n'));
     return;
   }
   processRows();
@@ -788,8 +862,8 @@ function processRows() {
     const r = {};
     r.fila = i + 1; // auto
 
-    r.doc_pac    = getv(raw, 'doc_pac');
-    r.doc_dr     = getv(raw, 'doc_dr');
+    r.doc_pac = getv(raw, 'doc_pac');
+    r.doc_dr  = S.docDrMode === 'manual' ? S.docDrFixed : getv(raw, 'doc_dr');
 
     // Tipo
     const rawTipo = getv(raw, 'tipo').toUpperCase();
