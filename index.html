@@ -502,7 +502,14 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
         <label>Archivo de evoluciones:</label>
         <input type="text" id="exp-name-data" value="evoluciones_dentos">
         <span class="ext">.txt</span>
-        <button class="btn btn-success" onclick="exportData()">⬇ Exportar datos</button>
+        <button class="btn btn-success" onclick="exportData()">⬇ Exportar todo en 1 archivo</button>
+      </div>
+      <div class="export-row" style="margin-top:10px;">
+        <label>Partir en bloques:</label>
+        <input type="number" id="exp-chunk-size" value="5000" min="100" max="20000" style="max-width:120px;">
+        <span class="ext">filas/archivo</span>
+        <button class="btn btn-success" onclick="exportChunks()">⬇ Exportar por bloques</button>
+        <small style="display:block;margin-top:6px;color:#666;">DentOS rechaza archivos muy grandes. Recomendado: 5000 filas por archivo.</small>
       </div>
 
       <div class="export-row">
@@ -1314,6 +1321,45 @@ function exportData() {
   const bytes = toWin1252(text);
   const blob = new Blob([bytes], {type: 'text/plain'});
   downloadBlob(blob, name);
+}
+
+function exportChunks() {
+  const chunkSize = parseInt(document.getElementById('exp-chunk-size').value, 10) || 5000;
+  if (chunkSize < 100) { alert('El tamaño mínimo es 100 filas'); return; }
+
+  const baseName = document.getElementById('exp-name-data').value.trim() || 'evoluciones_dentos';
+  const total = S.rows.length;
+  const numChunks = Math.ceil(total / chunkSize);
+
+  if (!confirm(`Se generarán ${numChunks} archivos de hasta ${chunkSize} filas cada uno.\n\nTotal: ${total} filas en ${numChunks} archivos.\n\n¿Continuar?`)) return;
+
+  for (let c = 0; c < numChunks; c++) {
+    const start = c * chunkSize;
+    const end = Math.min(start + chunkSize, total);
+    const slice = S.rows.slice(start, end);
+
+    const lines = slice.map((r, i) => {
+      const fields = [
+        start + i + 1,
+        r.doc_pac, r.doc_dr, r.tipo, r.detalle, r.fecha,
+        r.h_inicio, r.h_fin, r.h_llegada, r.objetivo,
+        r.dr_defecto, r.consecutivo,
+      ].map(ultraClean);
+      while (fields.length < 12) fields.push('');
+      if (fields.length > 12) fields.length = 12;
+      return fields.join('\t');
+    });
+
+    const text = lines.join('\r\n') + '\r\n';
+    const bytes = toWin1252(text);
+    const blob = new Blob([bytes], {type: 'text/plain'});
+    const partNum = String(c + 1).padStart(2, '0');
+    const partTotal = String(numChunks).padStart(2, '0');
+    const filename = `${baseName}_parte${partNum}_de${partTotal}.txt`;
+    setTimeout(() => downloadBlob(blob, filename), c * 400); // espaciado para que el navegador no bloquee descargas múltiples
+  }
+
+  alert(`Descargando ${numChunks} archivos. Súbelos a DentOS en orden:\n  ${baseName}_parte01_deXX.txt\n  ${baseName}_parte02_deXX.txt\n  ...`);
 }
 
 // Codifica string JS (UTF-16 interno) a Windows-1252 (1 byte por caracter)
