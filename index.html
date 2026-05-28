@@ -547,8 +547,10 @@ const S = {
   docRowIdx:  null,
   docDrMode:  'map',    // 'map' | 'manual'
   docDrFixed: '',       // número fijo cuando mode='manual'
+  tipoMode:   'map',    // 'map' | 'fixed'
+  tipoFixed:  '',       // E | EO | P | C cuando mode='fixed'
   _lastFileMain: null,
-  _lastFileRows: null,  // filas crudas para re-aplicar sin re-leer
+  _lastFileRows: null,
 };
 
 /* ============================================================
@@ -735,6 +737,43 @@ function buildMappingUI() {
     if (col.auto) {
       srcCell.innerHTML = `<div class="map-auto-val">🔢 Se genera automáticamente (1, 2, 3…)</div>`;
 
+    } else if (col.key === 'tipo') {
+      // Special: dropdown + fixed mass buttons
+      const defIdx = defOrder['tipo'];
+      if (defIdx !== undefined && defIdx < S.srcHeaders.length && !S.mapping['tipo']) {
+        S.mapping['tipo'] = String(defIdx);
+      }
+      const tipoColors = { E:'#2563eb', EO:'#7c3aed', P:'#d97706', C:'#059669' };
+      srcCell.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:0.6rem;">
+          <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+            <button id="btn-tipo-map"   class="btn btn-sm ${S.tipoMode==='map'   ? 'btn-primary':'btn-outline'}" onclick="setTipoMode('map')">📋 Desde el archivo</button>
+            <button id="btn-tipo-fixed" class="btn btn-sm ${S.tipoMode==='fixed' ? 'btn-primary':'btn-outline'}" onclick="setTipoMode('fixed')">✅ Valor fijo para todas las filas</button>
+          </div>
+          <div id="tipo-src-map" style="${S.tipoMode==='map' ? '':'display:none'}">
+            <select id="map-tipo" onchange="S.mapping['tipo']=this.value">
+              <option value="">— No mapear —</option>${srcOpts}
+            </select>
+          </div>
+          <div id="tipo-src-fixed" style="${S.tipoMode==='fixed' ? '':'display:none'}">
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              ${['E','EO','P','C'].map(t => `
+                <button onclick="pickTipo('${t}')" id="tipo-btn-${t}"
+                  class="btn btn-sm"
+                  style="border:2px solid ${tipoColors[t]};color:${tipoColors[t]};background:${S.tipoFixed===t ? tipoColors[t] : 'white'};color:${S.tipoFixed===t ? 'white' : tipoColors[t]};">
+                  ${t}
+                </button>`).join('')}
+            </div>
+            <div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.3rem;" id="tipo-fixed-label">
+              ${S.tipoFixed ? `Tipo seleccionado: <strong>${S.tipoFixed}</strong> — se aplicará a todas las filas` : 'Selecciona un tipo arriba'}
+            </div>
+          </div>
+        </div>`;
+      setTimeout(() => {
+        const sel = document.getElementById('map-tipo');
+        if (sel && S.mapping['tipo']) sel.value = S.mapping['tipo'];
+      }, 0);
+
     } else if (col.key === 'doc_dr') {
       // Special: two modes
       srcCell.innerHTML = `
@@ -790,6 +829,32 @@ function buildMappingUI() {
 }
 
 /* ============================================================
+   TIPO MODE TOGGLE
+============================================================ */
+function setTipoMode(mode) {
+  S.tipoMode = mode;
+  document.getElementById('btn-tipo-map').className   = `btn btn-sm ${mode==='map'   ? 'btn-primary':'btn-outline'}`;
+  document.getElementById('btn-tipo-fixed').className = `btn btn-sm ${mode==='fixed' ? 'btn-primary':'btn-outline'}`;
+  document.getElementById('tipo-src-map').style.display   = mode === 'map'   ? '' : 'none';
+  document.getElementById('tipo-src-fixed').style.display = mode === 'fixed' ? '' : 'none';
+}
+
+function pickTipo(t) {
+  S.tipoFixed = t;
+  const colors = { E:'#2563eb', EO:'#7c3aed', P:'#d97706', C:'#059669' };
+  ['E','EO','P','C'].forEach(opt => {
+    const btn = document.getElementById(`tipo-btn-${opt}`);
+    if (!btn) return;
+    const c = colors[opt];
+    btn.style.background = opt === t ? c : 'white';
+    btn.style.color      = opt === t ? 'white' : c;
+    btn.style.border     = `2px solid ${c}`;
+  });
+  const lbl = document.getElementById('tipo-fixed-label');
+  if (lbl) lbl.innerHTML = `Tipo seleccionado: <strong>${t}</strong> — se aplicará a todas las filas`;
+}
+
+/* ============================================================
    DOCTOR MODE TOGGLE
 ============================================================ */
 function setDrMode(mode) {
@@ -810,11 +875,16 @@ function step2Continue() {
       if (S.docDrMode === 'manual') return !S.docDrFixed.trim();
       return !S.mapping[c.key] && S.mapping[c.key] !== 0;
     }
+    if (c.key === 'tipo') {
+      if (S.tipoMode === 'fixed') return !S.tipoFixed;
+      return !S.mapping[c.key] && S.mapping[c.key] !== 0;
+    }
     return !S.mapping[c.key] && S.mapping[c.key] !== 0;
   });
   if (missing.length) {
     const msgs = missing.map(c => {
       if (c.key === 'doc_dr' && S.docDrMode === 'manual') return '• Documento doctor: ingresa el número fijo';
+      if (c.key === 'tipo'   && S.tipoMode   === 'fixed')  return '• Tipo: selecciona E, EO, P o C';
       return '• ' + c.label;
     });
     alert('Faltan campos requeridos:\n' + msgs.join('\n'));
@@ -885,12 +955,16 @@ function processRows() {
     r.doc_dr  = S.docDrMode === 'manual' ? S.docDrFixed : getv(raw, 'doc_dr');
 
     // Tipo
-    const rawTipo = getv(raw, 'tipo').toUpperCase();
-    if (['E','EO','P','C'].includes(rawTipo)) {
-      r.tipo = rawTipo;
+    if (S.tipoMode === 'fixed') {
+      r.tipo = S.tipoFixed;
     } else {
-      r.tipo = 'E';
-      if (rawTipo) S.findings.push({sev:'warning', row:i+1, msg:`Tipo "${rawTipo}" no reconocido → asignado "E"`});
+      const rawTipo = getv(raw, 'tipo').toUpperCase();
+      if (['E','EO','P','C'].includes(rawTipo)) {
+        r.tipo = rawTipo;
+      } else {
+        r.tipo = 'E';
+        if (rawTipo) S.findings.push({sev:'warning', row:i+1, msg:`Tipo "${rawTipo}" no reconocido → asignado "E"`});
+      }
     }
 
     // Detalle / Objetivo (line breaks already cleaned by getv)
