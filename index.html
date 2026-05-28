@@ -477,6 +477,7 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
           <tbody id="tbl-body"></tbody>
         </table>
       </div>
+      <div id="pagination-bar"></div>
     </div>
 
     <div class="flex-between" style="margin-top:1rem;">
@@ -631,19 +632,27 @@ function detectHeaderRow(rows) {
   return bestIdx;
 }
 
+// Detecta si una fila es de metadata/descripción del template (no es dato real)
+function isMetadataRow(row) {
+  const joined = row.join(' ').toLowerCase();
+  return /\bnúmero\b|\bno\s+mapear\b|debe estar creado|año-mes-día|hora:minutos|enumeraci[oó]n|identificad|campos en rojo|sin encabezados|delimitados|consecutivo de la fila|solo de ser necesario/i.test(joined);
+}
+
 async function applyMainFile(file, rows) {
   S._lastFileMain = file;
   S._lastFileRows = rows;
   S.hasHdrs = document.querySelector('input[name="hdrs"]:checked').value === 'yes';
 
   if (S.hasHdrs) {
-    const hdrIdx = detectHeaderRow(rows);
-    S.srcHeaders = rows[hdrIdx].map((h, i) => String(h||'').trim() || `Columna ${i+1}`);
-    S.rawRows    = rows.slice(hdrIdx + 1);
+    const hdrIdx  = detectHeaderRow(rows);
+    S.srcHeaders  = rows[hdrIdx].map((h, i) => String(h||'').trim() || `Columna ${i+1}`);
+    // Skip metadata/description rows right after the header
+    const dataRows = rows.slice(hdrIdx + 1).filter(r => !isMetadataRow(r));
+    S.rawRows = dataRows;
   } else {
     const maxC = Math.max(...rows.map(r => r.length));
     S.srcHeaders = Array.from({length: maxC}, (_, i) => `Columna ${i+1}`);
-    S.rawRows    = rows;
+    S.rawRows    = rows.filter(r => !isMetadataRow(r));
   }
 
   const preview = S.srcHeaders.slice(0, 6).map(h => `<strong>${esc(h)}</strong>`).join(' · ');
@@ -946,10 +955,20 @@ function parseTime(v) {
 }
 
 function processRows() {
-  S.findings = [];
+  // Acumuladores para hallazgos agrupados
+  const agg = {
+    noFecha:    0,
+    noHInicio:  0,
+    noHFin:     0,
+    noHLlegada: 0,
+    tipoInvalido: {},   // {tipo: count}
+    noPaciente: [],     // filas con doc_pac vacío
+    noDr:       [],     // filas con doc_dr vacío
+  };
+
   S.rows = S.rawRows.map((raw, i) => {
     const r = {};
-    r.fila = i + 1; // auto
+    r.fila = i + 1;
 
     r.doc_pac = getv(raw, 'doc_pac');
     r.doc_dr  = S.docDrMode === 'manual' ? S.docDrFixed : getv(raw, 'doc_dr');
@@ -963,51 +982,66 @@ function processRows() {
         r.tipo = rawTipo;
       } else {
         r.tipo = 'E';
-        if (rawTipo) S.findings.push({sev:'warning', row:i+1, msg:`Tipo "${rawTipo}" no reconocido → asignado "E"`});
+        if (rawTipo) agg.tipoInvalido[rawTipo] = (agg.tipoInvalido[rawTipo]||0) + 1;
       }
     }
 
-    // Detalle / Objetivo (line breaks already cleaned by getv)
     r.detalle   = getv(raw, 'detalle');
     r.objetivo  = getv(raw, 'objetivo');
 
     // Fecha
-    const rawF = getv(raw, 'fecha');
-    const pF   = parseDate(rawF);
-    if (pF) {
-      r.fecha = pF;
-    } else {
-      r.fecha = today();
-      S.findings.push({sev:'info', row:i+1, msg:`Sin fecha válida → fecha actual (${r.fecha})`});
-    }
+    const pF = parseDate(getv(raw, 'fecha'));
+    if (pF) { r.fecha = pF; } else { r.fecha = today(); agg.noFecha++; }
 
     // Horas
-    const rawHI = getv(raw, 'h_inicio');
-    const rawHF = getv(raw, 'h_fin');
-    const rawHL = getv(raw, 'h_llegada');
-
-    r.h_inicio  = parseTime(rawHI) || '12:00:00';
-    r.h_fin     = parseTime(rawHF) || '12:00:00';
-    r.h_llegada = parseTime(rawHL) || '12:00:00';
-
-    if (!parseTime(rawHI)) S.findings.push({sev:'info', row:i+1, msg:'Sin hora inicio → 12:00:00'});
-    if (!parseTime(rawHF)) S.findings.push({sev:'info', row:i+1, msg:'Sin hora fin → 12:00:00'});
-    if (!parseTime(rawHL)) S.findings.push({sev:'info', row:i+1, msg:'Sin hora llegada → 12:00:00'});
+    const tI = parseTime(getv(raw, 'h_inicio'));
+    const tF = parseTime(getv(raw, 'h_fin'));
+    const tL = parseTime(getv(raw, 'h_llegada'));
+    r.h_inicio  = tI || '12:00:00'; if (!tI) agg.noHInicio++;
+    r.h_fin     = tF || '12:00:00'; if (!tF) agg.noHFin++;
+    r.h_llegada = tL || '12:00:00'; if (!tL) agg.noHLlegada++;
 
     r.dr_defecto  = getv(raw, 'dr_defecto');
     r.consecutivo = getv(raw, 'consecutivo');
 
-    // Validations
-    if (!r.doc_pac) S.findings.push({sev:'warning', row:i+1, msg:'Documento de paciente vacío'});
-    if (!r.doc_dr)  S.findings.push({sev:'warning', row:i+1, msg:'Documento de doctor vacío'});
+    if (!r.doc_pac) agg.noPaciente.push(i+1);
+    if (!r.doc_dr)  agg.noDr.push(i+1);
 
     return r;
   });
+
+  // Construir hallazgos agrupados
+  S.findings = [];
+  const total = S.rows.length;
+
+  // Info agrupada
+  if (agg.noFecha    > 0) S.findings.push({sev:'info', msg:`${agg.noFecha} de ${total} filas sin fecha → se usó fecha actual (${today()})`});
+  if (agg.noHInicio  > 0) S.findings.push({sev:'info', msg:`${agg.noHInicio} filas sin hora inicio → 12:00:00`});
+  if (agg.noHFin     > 0) S.findings.push({sev:'info', msg:`${agg.noHFin} filas sin hora fin → 12:00:00`});
+  if (agg.noHLlegada > 0) S.findings.push({sev:'info', msg:`${agg.noHLlegada} filas sin hora llegada → 12:00:00`});
+
+  // Tipo inválido
+  Object.entries(agg.tipoInvalido).forEach(([t, n]) =>
+    S.findings.push({sev:'warning', msg:`${n} filas con tipo "${t}" no reconocido → asignado "E"`})
+  );
+
+  // Advertencias con detalle de filas (máx 20 filas listadas)
+  if (agg.noPaciente.length > 0) {
+    const sample = agg.noPaciente.slice(0,20).join(', ');
+    S.findings.push({sev:'warning', msg:`${agg.noPaciente.length} filas sin documento de paciente — filas: ${sample}${agg.noPaciente.length>20?' …':''}`});
+  }
+  if (agg.noDr.length > 0) {
+    const sample = agg.noDr.slice(0,20).join(', ');
+    S.findings.push({sev:'warning', msg:`${agg.noDr.length} filas sin documento de doctor — filas: ${sample}${agg.noDr.length>20?' …':''}`});
+  }
 }
 
 /* ============================================================
-   STEP 3: TABLE
+   STEP 3: TABLE (paginada — 200 filas por página)
 ============================================================ */
+const PAGE_SIZE = 200;
+let currentPage = 0;
+
 function renderTable() {
   const hasDocs = S.doctors.length > 0;
 
@@ -1028,7 +1062,39 @@ function renderTable() {
     ${hasDocs ? '<th class="col-auto">Buscar Dr.</th>' : ''}
   </tr>`;
 
-  document.getElementById('tbl-body').innerHTML = S.rows.map((r,i) => rowHTML(r, i, hasDocs)).join('');
+  currentPage = 0;
+  renderTablePage();
+}
+
+function renderTablePage() {
+  const hasDocs = S.doctors.length > 0;
+  const total   = S.rows.length;
+  const pages   = Math.ceil(total / PAGE_SIZE);
+  const start   = currentPage * PAGE_SIZE;
+  const end     = Math.min(start + PAGE_SIZE, total);
+  const slice   = S.rows.slice(start, end);
+
+  document.getElementById('tbl-body').innerHTML = slice.map((r, j) => rowHTML(r, start + j, hasDocs)).join('');
+
+  // Pagination bar
+  const pBar = document.getElementById('pagination-bar');
+  if (pBar) {
+    pBar.innerHTML = pages <= 1 ? '' : `
+      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.625rem 1rem;background:var(--gray-50);border-top:1px solid var(--gray-200);">
+        <button class="btn btn-outline btn-sm" onclick="changePage(-1)" ${currentPage===0?'disabled':''}>← Anterior</button>
+        <span style="font-size:0.85rem;color:var(--gray-600);">
+          Página <strong>${currentPage+1}</strong> de <strong>${pages}</strong>
+          &nbsp;(filas ${start+1}–${end} de ${total})
+        </span>
+        <button class="btn btn-outline btn-sm" onclick="changePage(1)"  ${currentPage===pages-1?'disabled':''}>Siguiente →</button>
+      </div>`;
+  }
+}
+
+function changePage(delta) {
+  const pages = Math.ceil(S.rows.length / PAGE_SIZE);
+  currentPage = Math.max(0, Math.min(currentPage + delta, pages - 1));
+  renderTablePage();
 }
 
 function rowHTML(r, i, hasDocs) {
