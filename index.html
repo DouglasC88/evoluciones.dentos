@@ -604,13 +604,13 @@ async function parseFile(file) {
     const ws   = wb.Sheets[wb.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
     return data.filter(r => r.some(c => String(c).trim() !== ''))
-               .map(r => r.map(c => String(c ?? '').trim()));
+               .map(r => r.map(c => stripBreaks(String(c ?? ''))));
   }
   // TSV / CSV fallback
   const txt = await readText(file);
   return txt.replace(/\r\n/g,'\n').replace(/\r/g,'\n')
     .split('\n').filter(l => l.trim())
-    .map(l => l.split('\t').map(c => c.trim()));
+    .map(l => l.split('\t').map(c => stripBreaks(c)));
 }
 
 function setupDrop(zoneId, inputId, cb) {
@@ -915,8 +915,18 @@ function getv(row, key) {
   return v !== undefined ? cleanLineBreaks(v) : '';
 }
 
+// Elimina TODOS los tipos de salto de línea y caracteres de control
+function stripBreaks(v) {
+  return String(v)
+    .replace(/\r\n/g, ' ')                         // Windows \r\n primero
+    .replace(/[\r\n\v\f  ]+/g, ' ') // Unix, Mac, Unicode
+    .replace(/[\x00-\x1F\x7F]/g, ' ')               // Cualquier otro control
+    .replace(/\s{2,}/g, ' ')                         // Espacios múltiples → uno
+    .trim();
+}
+
 function cleanLineBreaks(v) {
-  return String(v).replace(/[\r\n\t]+/g, ' ').trim();
+  return stripBreaks(String(v));
 }
 
 function today() {
