@@ -1289,8 +1289,8 @@ function exportData() {
   ].map(v => stripBreaks(String(v ?? ''))).join('\t'));
 
   const name = (document.getElementById('exp-name-data').value.trim() || 'evoluciones_dentos') + '.txt';
-  // Excel "Texto delimitado por tabulaciones" termina con \r\n final
-  download(lines.join('\r\n') + '\r\n', name);
+  const blob = new Blob([lines.join('\r\n')], {type: 'text/plain;charset=utf-8'});
+  downloadBlob(blob, name);
 }
 
 function exportReport() {
@@ -1329,25 +1329,18 @@ function exportReport() {
   ];
 
   const name = (document.getElementById('exp-name-report').value.trim() || 'reporte_hallazgos') + '.txt';
-  download(lines.join('\r\n'), name);
+  const blob = new Blob([lines.join('\r\n')], {type: 'text/plain;charset=utf-8'});
+  downloadBlob(blob, name);
 }
 
-// Convierte texto a ASCII puro: descompone diacríticos (NFD) y los elimina.
-// 'á'→'a', 'ñ'→'n', etc. DentOS detecta bytes >0x7F como binario y rechaza el archivo.
-function toAscii(str) {
-  return String(str)
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')         // quita marcas diacríticas combinantes
-    .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '?'); // reemplaza lo que no es ASCII imprimible
-}
-
-function download(content, filename) {
-  var ascii = toAscii(content);
-  var blob = new Blob([ascii], {type: 'text/plain'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+function downloadBlob(blob, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
 }
 
 /* ============================================================
