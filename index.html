@@ -7,8 +7,8 @@
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <style>
 :root {
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
+  --primary: #C8A53A;
+  --primary-dark: #A07C25;
   --success: #16a34a;
   --warning: #d97706;
   --danger: #dc2626;
@@ -20,6 +20,9 @@
   --gray-500: #6b7280;
   --gray-700: #374151;
   --gray-900: #111827;
+  --gold-light: #F5E070;
+  --gold-mid:   #C8A53A;
+  --gold-dark:  #8B6914;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -29,23 +32,28 @@ body {
   min-height: 100vh;
 }
 header {
-  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #111111 0%, #1e1e1e 60%, #2a2218 100%);
   color: white;
-  padding: 1.25rem 2rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  gap: 1.5rem;
+  border-bottom: 1px solid #C8A53A55;
 }
 header .header-text { flex: 1; }
-header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
-header p { font-size: 0.8rem; opacity: 0.75; margin-top: 0.25rem; }
-.logo-hex {
+header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; color: #F0D878; }
+header p  { font-size: 0.78rem; color: #b0a080; margin-top: 0.2rem; }
+.logo-brand {
   flex-shrink: 0;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
-  transition: transform 0.2s;
+  filter: drop-shadow(0 2px 8px rgba(200,165,58,0.4));
+  transition: transform 0.25s, filter 0.25s;
+  cursor: default;
 }
-.logo-hex:hover { transform: rotate(15deg) scale(1.08); }
+.logo-brand:hover {
+  filter: drop-shadow(0 4px 14px rgba(200,165,58,0.7));
+  transform: scale(1.05);
+}
 .container { max-width: 1500px; margin: 0 auto; padding: 1.5rem 2rem; }
 
 /* STEPS */
@@ -71,7 +79,7 @@ header p { font-size: 0.8rem; opacity: 0.75; margin-top: 0.25rem; }
 .step .step-label { font-size: 0.72rem; margin-top: 0.2rem; color: var(--gray-500); }
 .step.active { background: var(--primary); color: white; }
 .step.active .step-label { color: rgba(255,255,255,0.8); }
-.step.done { background: #eff6ff; }
+.step.done { background: #fdf8ec; }
 .step.done .step-num { color: var(--primary); }
 
 /* SECTIONS */
@@ -107,7 +115,7 @@ header p { font-size: 0.8rem; opacity: 0.75; margin-top: 0.25rem; }
 }
 .upload-zone:hover, .upload-zone.drag-over {
   border-color: var(--primary);
-  background: #eff6ff;
+  background: #fdf8ec;
 }
 .upload-zone .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
 .upload-zone p { color: var(--gray-500); font-size: 0.85rem; margin-top: 0.25rem; }
@@ -153,7 +161,7 @@ select, input[type="text"] {
 select:focus, input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  box-shadow: 0 0 0 3px rgba(200,165,58,0.15);
 }
 
 /* TAGS */
@@ -366,34 +374,52 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
 <body>
 
 <header>
-  <!-- Logo hexagonal — Douglas C. -->
-  <svg class="logo-hex" width="58" height="66" viewBox="0 0 58 66" xmlns="http://www.w3.org/2000/svg" aria-label="Douglas C.">
+  <svg class="logo-brand" width="190" height="62" viewBox="0 0 190 62" xmlns="http://www.w3.org/2000/svg" aria-label="DACP Migraciones DC">
     <defs>
-      <linearGradient id="hexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%"   stop-color="#0ea5e9"/>
-        <stop offset="100%" stop-color="#10b981"/>
+      <linearGradient id="gGold" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#F5E070"/>
+        <stop offset="45%"  stop-color="#D4A830"/>
+        <stop offset="100%" stop-color="#8B6410"/>
       </linearGradient>
-      <filter id="hexShadow" x="-10%" y="-10%" width="120%" height="120%">
-        <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.3)"/>
-      </filter>
+      <linearGradient id="gGold2" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%"   stop-color="#F0D060"/>
+        <stop offset="100%" stop-color="#A07820"/>
+      </linearGradient>
     </defs>
-    <!-- Hexágono -->
-    <polygon points="29,2 55,17 55,49 29,64 3,49 3,17"
-             fill="url(#hexGrad)" filter="url(#hexShadow)"/>
-    <!-- Borde interno sutil -->
-    <polygon points="29,6 51,19 51,47 29,60 7,47 7,19"
-             fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
-    <!-- Letra D -->
-    <text x="29" y="43" text-anchor="middle"
-          font-family="'Segoe UI', Arial, sans-serif"
-          font-size="32" font-weight="800"
-          fill="white" letter-spacing="-1">D</text>
-    <!-- Punto acento verde -->
-    <circle cx="43" cy="20" r="4" fill="#34d399"/>
+
+    <!-- ── Letra D ── -->
+    <text x="4" y="36" font-family="Georgia,'Times New Roman',serif"
+          font-size="30" font-weight="700" fill="url(#gGold)" letter-spacing="1">D</text>
+
+    <!-- ── Icono antena / señal (centro) ── -->
+    <!-- punto base -->
+    <circle cx="82" cy="34" r="3.2" fill="url(#gGold)"/>
+    <!-- varilla antena -->
+    <line x1="82" y1="30" x2="82" y2="14" stroke="url(#gGold2)" stroke-width="2" stroke-linecap="round"/>
+    <!-- arcos de señal izquierda -->
+    <path d="M72,28 Q67,21 72,14" fill="none" stroke="url(#gGold)" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M76,26 Q73,21 76,16" fill="none" stroke="url(#gGold)" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- arcos de señal derecha -->
+    <path d="M92,28 Q97,21 92,14" fill="none" stroke="url(#gGold)" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M88,26 Q91,21 88,16" fill="none" stroke="url(#gGold)" stroke-width="1.5" stroke-linecap="round"/>
+
+    <!-- líneas conectoras D–antena y antena–CP -->
+    <line x1="26" y1="25" x2="66" y2="25" stroke="#C8A53A" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>
+    <line x1="98" y1="25" x2="130" y2="25" stroke="#C8A53A" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>
+
+    <!-- ── Letras CP ── -->
+    <text x="128" y="36" font-family="Georgia,'Times New Roman',serif"
+          font-size="30" font-weight="700" fill="url(#gGold)" letter-spacing="1">CP</text>
+
+    <!-- ── Texto inferior MIGRACIONES DC ── -->
+    <text x="95" y="54" text-anchor="middle"
+          font-family="Georgia,'Times New Roman',serif"
+          font-size="10.5" font-weight="600" letter-spacing="4"
+          fill="url(#gGold)" opacity="0.92">MIGRACIONES DC</text>
   </svg>
 
   <div class="header-text">
-    <h1>🦷 Migrador de Evoluciones — DentOS</h1>
+    <h1>Migrador de Evoluciones — DentOS</h1>
     <p>Prepara, valida y exporta evoluciones en formato compatible con DentOS (TXT delimitado por tabulación)</p>
   </div>
 </header>
