@@ -33,9 +33,19 @@ header {
   color: white;
   padding: 1.25rem 2rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
 }
+header .header-text { flex: 1; }
 header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
 header p { font-size: 0.8rem; opacity: 0.75; margin-top: 0.25rem; }
+.logo-hex {
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
+  transition: transform 0.2s;
+}
+.logo-hex:hover { transform: rotate(15deg) scale(1.08); }
 .container { max-width: 1500px; margin: 0 auto; padding: 1.5rem 2rem; }
 
 /* STEPS */
@@ -356,8 +366,36 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
 <body>
 
 <header>
-  <h1>🦷 Migrador de Evoluciones — DentOS</h1>
-  <p>Prepara, valida y exporta evoluciones en formato compatible con DentOS (TXT delimitado por tabulación)</p>
+  <!-- Logo hexagonal — Douglas C. -->
+  <svg class="logo-hex" width="58" height="66" viewBox="0 0 58 66" xmlns="http://www.w3.org/2000/svg" aria-label="Douglas C.">
+    <defs>
+      <linearGradient id="hexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#0ea5e9"/>
+        <stop offset="100%" stop-color="#10b981"/>
+      </linearGradient>
+      <filter id="hexShadow" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.3)"/>
+      </filter>
+    </defs>
+    <!-- Hexágono -->
+    <polygon points="29,2 55,17 55,49 29,64 3,49 3,17"
+             fill="url(#hexGrad)" filter="url(#hexShadow)"/>
+    <!-- Borde interno sutil -->
+    <polygon points="29,6 51,19 51,47 29,60 7,47 7,19"
+             fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+    <!-- Letra D -->
+    <text x="29" y="43" text-anchor="middle"
+          font-family="'Segoe UI', Arial, sans-serif"
+          font-size="32" font-weight="800"
+          fill="white" letter-spacing="-1">D</text>
+    <!-- Punto acento verde -->
+    <circle cx="43" cy="20" r="4" fill="#34d399"/>
+  </svg>
+
+  <div class="header-text">
+    <h1>🦷 Migrador de Evoluciones — DentOS</h1>
+    <p>Prepara, valida y exporta evoluciones en formato compatible con DentOS (TXT delimitado por tabulación)</p>
+  </div>
 </header>
 
 <div class="container">
