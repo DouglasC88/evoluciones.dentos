@@ -1278,12 +1278,45 @@ function renderFindings(container) {
     const icon = f.sev === 'warning' ? '⚠️' : 'ℹ️';
     const cls  = f.sev === 'warning' ? 'warning' : 'info';
     const rowLabel = f.row ? `<strong>Fila ${f.row}:</strong> ` : '';
-    const extra = f._isDup
-      ? `<button class="btn btn-xs" style="margin-left:0.75rem;background:#b91c1c;color:#fff;border:none;" onclick="removeAllDuplicates()">🗑 Eliminar duplicados</button>`
-      : '';
+
+    if (f._isDup && f._dupIdxs) {
+      // Tabla detallada para duplicados
+      const rows = f._dupIdxs.map(({ keepIdx, dupIdx }) => {
+        const r = S.rows[dupIdx];
+        const det = ultraClean(r ? r.detalle || '' : '').substring(0, 60);
+        return `<tr style="border-bottom:1px solid #fecaca;">
+          <td style="padding:5px 10px;color:#b91c1c;font-weight:600;white-space:nowrap;">Fila ${dupIdx+1} <small style="color:#888;">(= ${keepIdx+1})</small></td>
+          <td style="padding:5px 10px;font-family:monospace;">${esc(r ? r.doc_pac : '')}</td>
+          <td style="padding:5px 10px;white-space:nowrap;">${esc(r ? r.fecha : '')}</td>
+          <td style="padding:5px 10px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(det)}…</td>
+          <td style="padding:5px 10px;text-align:center;"><button class="btn btn-xs" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;" onclick="removeSingleRow(${dupIdx})">🗑</button></td>
+        </tr>`;
+      }).join('');
+
+      return `<div class="finding-item finding-warning" style="flex-direction:column;align-items:stretch;padding:0;">
+        <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 1rem;flex-wrap:wrap;">
+          <span>⚠️</span>
+          <div style="flex:1;">${f._dupIdxs.length} evoluciones duplicadas — se conserva la primera aparición de cada una</div>
+          <button class="btn btn-xs" style="background:#b91c1c;color:#fff;border:none;white-space:nowrap;" onclick="removeAllDuplicates()">🗑 Eliminar todos</button>
+        </div>
+        <div style="overflow-x:auto;border-top:1px solid #fecaca;">
+          <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+            <thead><tr style="background:#fee2e2;">
+              <th style="padding:5px 10px;text-align:left;">Fila dup.</th>
+              <th style="padding:5px 10px;text-align:left;">Paciente</th>
+              <th style="padding:5px 10px;text-align:left;">Fecha</th>
+              <th style="padding:5px 10px;text-align:left;">Detalle</th>
+              <th style="padding:5px 10px;"></th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }
+
     return `<div class="finding-item finding-${cls}">
       <span>${icon}</span>
-      <div>${rowLabel}${esc(f.msg)}${extra}</div>
+      <div>${rowLabel}${esc(f.msg)}</div>
     </div>`;
   }).join('');
 }
