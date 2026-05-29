@@ -1358,21 +1358,50 @@ function togglePatientSummary() {
         <th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--gray-200);">Doc. Paciente</th>
         <th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--gray-200);">Evoluciones</th>
         <th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--gray-200);">% del total</th>
+        <th style="padding:8px 12px;border-bottom:1px solid var(--gray-200);"></th>
       </tr></thead>
       <tbody>`;
 
   sorted.forEach(([doc, cnt], idx) => {
     const pct = ((cnt / total) * 100).toFixed(1);
+    const docEscAttr = esc(doc).replace(/"/g, '&quot;');
     html += `<tr style="${idx % 2 ? 'background:var(--gray-50);' : ''}">
       <td style="padding:6px 12px;font-family:monospace;">${esc(doc)}</td>
       <td style="padding:6px 12px;text-align:right;font-weight:600;">${cnt}</td>
       <td style="padding:6px 12px;text-align:right;color:var(--gray-500);">${pct}%</td>
+      <td style="padding:6px 12px;text-align:center;">
+        <button class="btn btn-outline btn-xs" onclick="exportOnePatient('${docEscAttr}')" title="Exportar solo este paciente">⬇ Prueba</button>
+      </td>
     </tr>`;
   });
 
-  html += `</tbody></table></div>`;
+  html += `</tbody></table></div>
+  <small style="display:block;margin-top:8px;color:#888;">💡 Usa "⬇ Prueba" para exportar solo 1 paciente y verificar en DentOS antes de cargar todos.</small>`;
   el.innerHTML = html;
   el.classList.remove('hidden');
+}
+
+function exportOnePatient(docPac) {
+  const subset = S.rows.filter(r => (r.doc_pac || '').trim() === docPac.trim());
+  if (!subset.length) { alert('No se encontraron filas para ese paciente.'); return; }
+
+  const lines = subset.map((r, i) => {
+    const fields = [
+      i + 1,
+      r.doc_pac, r.doc_dr, r.tipo, r.detalle, r.fecha,
+      r.h_inicio, r.h_fin, r.h_llegada, r.objetivo,
+      r.dr_defecto, r.consecutivo,
+    ].map(ultraClean);
+    while (fields.length < 12) fields.push('');
+    if (fields.length > 12) fields.length = 12;
+    return fields.join('\t');
+  });
+
+  const text = lines.join('\r\n') + '\r\n';
+  const bytes = toWin1252(text);
+  const blob = new Blob([bytes], { type: 'text/plain' });
+  const safeName = docPac.replace(/[^a-zA-Z0-9_-]/g, '_');
+  downloadBlob(blob, `prueba_paciente_${safeName}.txt`);
 }
 
 function exportData() {
