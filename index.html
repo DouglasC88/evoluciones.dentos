@@ -503,6 +503,11 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
         <span id="sort-status" style="font-size:0.85rem;color:var(--gray-600);"></span>
       </div>
       <small style="display:block;margin-top:6px;color:#666;">Al ordenar, las evoluciones del mismo paciente quedan juntas y la columna "Fila" se renumera al exportar.</small>
+      <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.75rem;">
+        <input type="text" id="pac-search" placeholder="Buscar por número de documento..." oninput="filterPatientSummary()" style="max-width:320px;flex:1;">
+        <button class="btn btn-outline btn-sm" onclick="removePatientFromSearch()" id="btn-remove-search" style="display:none;">🗑 Eliminar este paciente</button>
+        <span id="pac-search-info" style="font-size:0.85rem;color:var(--gray-600);"></span>
+      </div>
       <div id="patient-summary" class="hidden" style="margin-top:1rem;"></div>
     </div>
 
@@ -1345,7 +1350,9 @@ function togglePatientSummary() {
     counts.set(k, (counts.get(k) || 0) + 1);
   });
 
-  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const q = (document.getElementById('pac-search').value || '').trim();
+  let sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  if (q) sorted = sorted.filter(([doc]) => doc.includes(q));
   const total = S.rows.length;
   const uniquePac = sorted.length;
 
@@ -1380,6 +1387,53 @@ function togglePatientSummary() {
   <small style="display:block;margin-top:8px;color:#888;">💡 Flujo seguro: exporta 1 paciente con "⬇ Prueba", verifica en DentOS, luego "🗑 Eliminar" para sacarlo del listado antes de exportar el resto.</small>`;
   el.innerHTML = html;
   el.classList.remove('hidden');
+}
+
+function filterPatientSummary() {
+  const q = (document.getElementById('pac-search').value || '').trim();
+  const info = document.getElementById('pac-search-info');
+  const btn = document.getElementById('btn-remove-search');
+
+  if (!q) {
+    info.textContent = '';
+    btn.style.display = 'none';
+    // Refrescar tabla completa si está visible
+    const el = document.getElementById('patient-summary');
+    if (el && !el.classList.contains('hidden')) {
+      el.classList.add('hidden');
+      togglePatientSummary();
+    }
+    return;
+  }
+
+  const matches = S.rows.filter(r => (r.doc_pac || '').trim() === q);
+  if (matches.length > 0) {
+    info.textContent = `✓ ${matches.length} evoluciones encontradas`;
+    info.style.color = 'var(--green-600, #16a34a)';
+    btn.style.display = '';
+    btn.dataset.doc = q;
+  } else {
+    info.textContent = 'No encontrado';
+    info.style.color = '#b91c1c';
+    btn.style.display = 'none';
+  }
+
+  // Filtrar tabla si está abierta
+  const el = document.getElementById('patient-summary');
+  if (el && !el.classList.contains('hidden')) {
+    el.classList.add('hidden');
+    togglePatientSummary();
+  }
+}
+
+function removePatientFromSearch() {
+  const btn = document.getElementById('btn-remove-search');
+  const docPac = btn.dataset.doc || '';
+  if (!docPac) return;
+  removePatient(docPac);
+  document.getElementById('pac-search').value = '';
+  document.getElementById('pac-search-info').textContent = '';
+  btn.style.display = 'none';
 }
 
 function removePatient(docPac) {
