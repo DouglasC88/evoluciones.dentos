@@ -1369,16 +1369,34 @@ function togglePatientSummary() {
       <td style="padding:6px 12px;font-family:monospace;">${esc(doc)}</td>
       <td style="padding:6px 12px;text-align:right;font-weight:600;">${cnt}</td>
       <td style="padding:6px 12px;text-align:right;color:var(--gray-500);">${pct}%</td>
-      <td style="padding:6px 12px;text-align:center;">
+      <td style="padding:6px 12px;text-align:center;white-space:nowrap;gap:4px;display:flex;justify-content:center;">
         <button class="btn btn-outline btn-xs" onclick="exportOnePatient('${docEscAttr}')" title="Exportar solo este paciente">⬇ Prueba</button>
+        <button class="btn btn-xs" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;" onclick="removePatient('${docEscAttr}')" title="Eliminar del listado">🗑 Eliminar</button>
       </td>
     </tr>`;
   });
 
   html += `</tbody></table></div>
-  <small style="display:block;margin-top:8px;color:#888;">💡 Usa "⬇ Prueba" para exportar solo 1 paciente y verificar en DentOS antes de cargar todos.</small>`;
+  <small style="display:block;margin-top:8px;color:#888;">💡 Flujo seguro: exporta 1 paciente con "⬇ Prueba", verifica en DentOS, luego "🗑 Eliminar" para sacarlo del listado antes de exportar el resto.</small>`;
   el.innerHTML = html;
   el.classList.remove('hidden');
+}
+
+function removePatient(docPac) {
+  const count = S.rows.filter(r => (r.doc_pac || '').trim() === docPac.trim()).length;
+  if (!confirm(`¿Eliminar las ${count} evoluciones del paciente ${docPac} del listado?\n\nEsto NO afecta el Excel original, solo el listado en memoria.`)) return;
+  S.rows = S.rows.filter(r => (r.doc_pac || '').trim() !== docPac.trim());
+  S.selected.clear();
+  currentPage = 0;
+  renderTablePage();
+  // Refrescar el resumen
+  const el = document.getElementById('patient-summary');
+  if (el && !el.classList.contains('hidden')) {
+    el.classList.add('hidden');
+    togglePatientSummary();
+  }
+  const st = document.getElementById('sort-status');
+  if (st) st.textContent = `✓ ${S.rows.length} filas restantes`;
 }
 
 function exportOnePatient(docPac) {
