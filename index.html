@@ -514,12 +514,6 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
     <div class="card">
       <h2>💾 Exportar archivos</h2>
 
-      <div style="margin-bottom:1rem;padding:0.75rem;background:#fefce8;border:1px solid #fde047;border-radius:8px;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-        <button class="btn btn-warning btn-sm" onclick="showDuplicatesPanel()">🔍 Revisar duplicados antes de exportar</button>
-        <span id="dup-summary" style="font-size:0.85rem;color:var(--gray-700);"></span>
-      </div>
-      <div id="dup-panel" class="hidden" style="margin-bottom:1rem;border:1px solid #fca5a5;border-radius:8px;overflow:hidden;"></div>
-
       <div class="export-row">
         <label>Archivo de evoluciones:</label>
         <input type="text" id="exp-name-data" value="evoluciones_dentos">
@@ -1280,19 +1274,46 @@ function renderFindings(container) {
     container.innerHTML = `<div class="finding-item finding-success">✅ Sin hallazgos. El archivo está listo para exportar.</div>`;
     return;
   }
-  // Group by row for readability
-  container.innerHTML = S.findings.map(f =>
-    `<div class="finding-item finding-${f.sev==='warning'?'warning':'info'}">
-       <span>${f.sev==='warning'?'⚠️':'ℹ️'}</span>
-       <div><strong>Fila ${f.row}:</strong> ${esc(f.msg)}</div>
-     </div>`
-  ).join('');
+  container.innerHTML = S.findings.map(f => {
+    const icon = f.sev === 'warning' ? '⚠️' : 'ℹ️';
+    const cls  = f.sev === 'warning' ? 'warning' : 'info';
+    const rowLabel = f.row ? `<strong>Fila ${f.row}:</strong> ` : '';
+    const extra = f._isDup
+      ? `<button class="btn btn-xs" style="margin-left:0.75rem;background:#b91c1c;color:#fff;border:none;" onclick="removeAllDuplicates()">🗑 Eliminar duplicados</button>`
+      : '';
+    return `<div class="finding-item finding-${cls}">
+      <span>${icon}</span>
+      <div>${rowLabel}${esc(f.msg)}${extra}</div>
+    </div>`;
+  }).join('');
 }
 
 /* ============================================================
    STEP 3 → 4
 ============================================================ */
 function prepareExport() {
+  // Añadir duplicados a findings antes de renderizar
+  const lines = S.rows.map(r => [
+    r.doc_pac, r.doc_dr, r.tipo, r.detalle, r.fecha,
+    r.h_inicio, r.h_fin, r.h_llegada, r.objetivo, r.dr_defecto, r.consecutivo,
+  ].map(v => ultraClean(v)).join('\t'));
+  const seen = new Map();
+  const dupIdxs = [];
+  lines.forEach((ln, i) => {
+    if (seen.has(ln)) dupIdxs.push({ dupIdx: i, keepIdx: seen.get(ln) });
+    else seen.set(ln, i);
+  });
+  // Limpiar findings de duplicados anteriores antes de re-añadir
+  S.findings = S.findings.filter(f => !f._isDup);
+  if (dupIdxs.length > 0) {
+    const sample = dupIdxs.slice(0, 5).map(d => `fila ${d.dupIdx + 1} (= ${d.keepIdx + 1})`).join(', ');
+    S.findings.push({
+      sev: 'warning',
+      msg: `${dupIdxs.length} evoluciones duplicadas detectadas — ${sample}${dupIdxs.length > 5 ? ' …' : ''}`,
+      _isDup: true,
+      _dupIdxs: dupIdxs,
+    });
+  }
   renderStats(document.getElementById('exp-stats'));
   renderFindings(document.getElementById('findings-box'));
   goToStep(4);
@@ -1518,7 +1539,10 @@ function removeAllDuplicates() {
   S.selected.clear();
   currentPage = 0;
   renderTablePage();
-  showDuplicatesPanel();
+  // Refrescar findings con el nuevo conteo
+  S.findings = S.findings.filter(f => !f._isDup);
+  renderFindings(document.getElementById('findings-box'));
+  renderStats(document.getElementById('exp-stats'));
   const st = document.getElementById('sort-status');
   if (st) st.textContent = `✓ ${S.rows.length} filas después de limpiar duplicados`;
 }
