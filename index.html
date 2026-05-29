@@ -514,6 +514,12 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
     <div class="card">
       <h2>💾 Exportar archivos</h2>
 
+      <div style="margin-bottom:1rem;padding:0.75rem;background:#fefce8;border:1px solid #fde047;border-radius:8px;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+        <button class="btn btn-warning btn-sm" onclick="showDuplicatesPanel()">🔍 Revisar duplicados antes de exportar</button>
+        <span id="dup-summary" style="font-size:0.85rem;color:var(--gray-700);"></span>
+      </div>
+      <div id="dup-panel" class="hidden" style="margin-bottom:1rem;border:1px solid #fca5a5;border-radius:8px;overflow:hidden;"></div>
+
       <div class="export-row">
         <label>Archivo de evoluciones:</label>
         <input type="text" id="exp-name-data" value="evoluciones_dentos">
@@ -1424,6 +1430,97 @@ function filterPatientSummary() {
     el.classList.add('hidden');
     togglePatientSummary();
   }
+}
+
+function showDuplicatesPanel() {
+  if (!S.rows.length) { alert('No hay datos cargados.'); return; }
+
+  // Build lines ignoring Fila (same logic as checkDuplicates)
+  const lines = S.rows.map(r => [
+    r.doc_pac, r.doc_dr, r.tipo, r.detalle, r.fecha,
+    r.h_inicio, r.h_fin, r.h_llegada, r.objetivo, r.dr_defecto, r.consecutivo,
+  ].map(v => ultraClean(v)).join('\t'));
+
+  const seen = new Map();
+  const dupes = []; // {keepIdx, dupIdx}
+  lines.forEach((ln, i) => {
+    if (seen.has(ln)) dupes.push({ keepIdx: seen.get(ln), dupIdx: i });
+    else seen.set(ln, i);
+  });
+
+  const sumEl = document.getElementById('dup-summary');
+  const panel = document.getElementById('dup-panel');
+
+  if (dupes.length === 0) {
+    sumEl.innerHTML = '<span style="color:#16a34a;">✓ Sin duplicados — puedes exportar con confianza.</span>';
+    panel.classList.add('hidden');
+    return;
+  }
+
+  sumEl.innerHTML = `<span style="color:#b91c1c;">⚠ ${dupes.length} fila(s) duplicada(s) detectadas</span>`;
+
+  let html = `<div style="padding:0.75rem 1rem;background:#fee2e2;border-bottom:1px solid #fca5a5;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+    <strong style="color:#b91c1c;">⚠ ${dupes.length} fila(s) duplicada(s)</strong>
+    <button class="btn btn-sm" style="background:#b91c1c;color:#fff;border:none;" onclick="removeAllDuplicates()">🗑 Eliminar todos los duplicados</button>
+  </div>
+  <div style="max-height:300px;overflow-y:auto;">
+  <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+    <thead><tr style="background:#fee2e2;position:sticky;top:0;">
+      <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #fca5a5;">Fila dup.</th>
+      <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #fca5a5;">Paciente</th>
+      <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #fca5a5;">Fecha</th>
+      <th style="padding:6px 10px;border-bottom:1px solid #fca5a5;">Detalle (recortado)</th>
+      <th style="padding:6px 10px;border-bottom:1px solid #fca5a5;"></th>
+    </tr></thead><tbody>`;
+
+  dupes.forEach(({ keepIdx, dupIdx }) => {
+    const r = S.rows[dupIdx];
+    const det = ultraClean(r.detalle || '').substring(0, 60);
+    html += `<tr style="border-bottom:1px solid #fecaca;">
+      <td style="padding:5px 10px;color:#b91c1c;font-weight:600;">Fila ${dupIdx + 1} <small style="color:#888;">(= ${keepIdx + 1})</small></td>
+      <td style="padding:5px 10px;font-family:monospace;">${esc(r.doc_pac)}</td>
+      <td style="padding:5px 10px;">${esc(r.fecha)}</td>
+      <td style="padding:5px 10px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(det)}…</td>
+      <td style="padding:5px 10px;text-align:center;">
+        <button class="btn btn-xs" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;" onclick="removeSingleRow(${dupIdx})">🗑</button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  panel.innerHTML = html;
+  panel.classList.remove('hidden');
+}
+
+function removeSingleRow(idx) {
+  S.rows.splice(idx, 1);
+  S.selected.clear();
+  currentPage = 0;
+  renderTablePage();
+  showDuplicatesPanel(); // Refresh panel
+}
+
+function removeAllDuplicates() {
+  const lines = S.rows.map(r => [
+    r.doc_pac, r.doc_dr, r.tipo, r.detalle, r.fecha,
+    r.h_inicio, r.h_fin, r.h_llegada, r.objetivo, r.dr_defecto, r.consecutivo,
+  ].map(v => ultraClean(v)).join('\t'));
+
+  const seen = new Set();
+  const toRemove = new Set();
+  lines.forEach((ln, i) => {
+    if (seen.has(ln)) toRemove.add(i);
+    else seen.add(ln);
+  });
+
+  if (!confirm(`¿Eliminar las ${toRemove.size} filas duplicadas? Se conserva solo la primera aparición de cada evolución.`)) return;
+  S.rows = S.rows.filter((_, i) => !toRemove.has(i));
+  S.selected.clear();
+  currentPage = 0;
+  renderTablePage();
+  showDuplicatesPanel();
+  const st = document.getElementById('sort-status');
+  if (st) st.textContent = `✓ ${S.rows.length} filas después de limpiar duplicados`;
 }
 
 function removePatientFromSearch() {
