@@ -1041,23 +1041,49 @@ function cleanLineBreaks(v) {
   return stripBreaks(String(v));
 }
 
+function fmtLocal(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${da}`;
+}
+function fmtUTC(d) {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const da = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${da}`;
+}
+
 function today() {
-  return new Date().toISOString().slice(0,10);
+  return fmtLocal(new Date());
 }
 
 function parseDate(v) {
-  if (!v || !v.trim()) return null;
-  v = v.trim();
-  // YYYY-MM-DD or YYYY/MM/DD
-  if (/^\d{4}[-/]\d{2}[-/]\d{2}$/.test(v)) return v.replace(/\//g,'-');
-  // DD/MM/YYYY or DD-MM-YYYY
-  const m = v.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (v == null) return null;
+  // Objeto Date (SheetJS con cellDates)
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : fmtLocal(v);
+  let s = String(v).trim();
+  if (!s) return null;
+  // Quitar parte de hora pegada: "2013-09-09 00:00:00" / "2013-09-09T00:00:00"
+  s = s.replace(/[ T]\d{1,2}:\d{2}(:\d{2})?.*$/, '').trim();
+  // YYYY-M-D o YYYY/M/D o YYYY.M.D (dígitos flexibles)
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  // D-M-YYYY o D/M/YYYY (día primero)
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
   if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
-  // Excel serial
-  const n = parseFloat(v);
-  if (!isNaN(n) && n > 40000) {
-    const d = new Date(Math.round((n - 25569)*86400*1000));
-    return d.toISOString().slice(0,10);
+  // Serial de Excel (número de días)
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const n = parseFloat(s);
+    if (n > 40000 && n < 60000) {
+      const d = new Date(Math.round((n - 25569) * 86400 * 1000));
+      return fmtUTC(d);
+    }
+  }
+  // Último recurso: que JS lo intente (nombres de mes, toString de Date, etc.)
+  const d = new Date(s);
+  if (!isNaN(d.getTime()) && d.getFullYear() > 1900 && d.getFullYear() < 2100) {
+    return fmtLocal(d);
   }
   return null;
 }
@@ -1174,7 +1200,7 @@ function renderTable() {
     <th>Doc. Doctor</th>
     <th>Tipo</th>
     <th style="min-width:200px">Detalle</th>
-    <th>Fecha</th>
+    <th style="min-width:120px">Fecha de evolución</th>
     <th>H. Inicio</th>
     <th>H. Fin</th>
     <th>H. Llegada</th>
