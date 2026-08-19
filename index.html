@@ -616,10 +616,12 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
 
       <div class="export-row" style="margin-top:10px;">
         <label>Partir en bloques:</label>
-        <input type="number" id="exp-chunk-size" value="7500" min="100" max="20000" style="max-width:120px;">
-        <span class="ext">filas/archivo</span>
+        <input type="number" id="exp-chunk-size" value="7500" min="100" max="20000" style="max-width:110px;">
+        <span class="ext">filas máx.</span>
+        <input type="number" id="exp-chunk-mb" value="1.5" min="0.1" max="20" step="0.1" style="max-width:90px;">
+        <span class="ext">MB máx.</span>
         <button class="btn btn-success" onclick="exportChunks()">⬇ Exportar por bloques</button>
-        <small style="display:block;margin-top:6px;color:#666;">DentOS acepta hasta ~7500 filas por archivo. Si falla, baja a 5000.</small>
+        <small style="display:block;margin-top:6px;color:#666;">DentOS rechaza el archivo con el mensaje <em>"formato no válido"</em> cuando pesa más de lo que acepta el servidor (~2 MB, límite de PHP). Corta por el primero de los dos límites que se alcance; el que manda casi siempre es el de MB. Si sigue fallando, baja a 1.0 MB.</small>
       </div>
 
       <div class="export-row">
@@ -1806,65 +1808,92 @@ function exportData() {
   // y \r\n final como hace Excel
   const text = lines.join('\r\n') + '\r\n';
   const bytes = encodeFlat(text);
+
+  // DentOS rechaza con "formato no valido" los archivos que pesan mas de lo que
+  // acepta el servidor (~2 MB). Avisar antes de que el usuario pierda el viaje.
+  const LIMITE_BYTES = 1.9 * 1024 * 1024;
+  if (bytes.length > LIMITE_BYTES) {
+    const ok = confirm(`El archivo pesa ${fmtMB(bytes.length)} y DentOS suele rechazar todo lo que pase de ~2 MB (te muestra "El formato del archivo no es valido").\n\nLo recomendable es usar "Exportar por bloques" con 1.5 MB por archivo.\n\n¿Descargarlo igual?`);
+    if (!ok) return;
+  }
+
   const blob = new Blob([bytes], {type: 'text/plain'});
   downloadBlob(blob, name);
 }
 
 function exportChunks() {
-  const chunkSize = parseInt(document.getElementById('exp-chunk-size').value, 10) || 5000;
-  if (chunkSize < 100) { alert('El tamaño mínimo es 100 filas'); return; }
-
   if (!S.rows.length) { alert('No hay filas para exportar.'); return; }
+
+  const maxRows = parseInt(document.getElementById('exp-chunk-size').value, 10) || 5000;
+  if (maxRows < 100) { alert('El mínimo es 100 filas'); return; }
+  const maxMB = parseFloat(document.getElementById('exp-chunk-mb').value) || 1.5;
+  if (maxMB < 0.1) { alert('El mínimo es 0.1 MB'); return; }
+  const maxBytes = Math.round(maxMB * 1024 * 1024);
 
   const baseName = safeFileName(document.getElementById('exp-name-data').value, 'evoluciones_dentos')
     + (useStamp() ? '_' + stampSuffix() : '');
-  const total = S.rows.length;
-  const numChunks = Math.ceil(total / chunkSize);
-
-  if (!confirm(`Se generarán ${numChunks} archivos de hasta ${chunkSize} filas cada uno.\n\nTotal: ${total} filas en ${numChunks} archivos.\n\n¿Continuar?`)) return;
 
   // Detectar duplicados en todo el conjunto antes de partir
-  const allLines = S.rows.map(r => {
-    const fields = [
-      0, r.doc_pac, r.doc_dr, r.tipo, r.detalle, r.fecha,
-      r.h_inicio, r.h_fin, r.h_llegada, r.objetivo,
-      r.dr_defecto, r.consecutivo,
-    ].map(ultraClean);
-    return fields.join('\t');
-  });
+  const allLines = S.rows.map(r => rowToLine(r, 0));
   const dupCheck = checkDuplicates(allLines);
   if (dupCheck.count > 0) {
     const ok = confirm(`Se detectaron ${dupCheck.count} filas duplicadas (mismo paciente, fecha, hora y detalle).\n\nEjemplo: filas ${dupCheck.samples.join(', ')}\n\n¿Deseas continuar de todos modos?`);
     if (!ok) return;
   }
 
-  for (let c = 0; c < numChunks; c++) {
-    const start = c * chunkSize;
-    const end = Math.min(start + chunkSize, total);
-    const slice = S.rows.slice(start, end);
+  // Agrupar filas respetando los DOS limites: filas por archivo y bytes por archivo.
+  // El peso se mide sobre los bytes ya codificados, que es lo que recibe el servidor.
+  const EOL = 2; // \r\n
+  const groups = [];
+  let cur = [], curBytes = 0;
+  S.rows.forEach((r, idx) => {
+    const lineBytes = encodeFlat(rowToLine(r, cur.length + 1)).length + EOL;
+    if (cur.length && (cur.length >= maxRows || curBytes + lineBytes > maxBytes)) {
+      groups.push(cur); cur = []; curBytes = 0;
+    }
+    cur.push(r);
+    curBytes += lineBytes;
+  });
+  if (cur.length) groups.push(cur);
 
-    const lines = slice.map((r, i) => {
-      const fields = [
-        i + 1, // Fila reinicia desde 1 en cada bloque
-        r.doc_pac, r.doc_dr, r.tipo, r.detalle, r.fecha,
-        r.h_inicio, r.h_fin, r.h_llegada, r.objetivo,
-        r.dr_defecto, r.consecutivo,
-      ].map(ultraClean);
-      while (fields.length < 12) fields.push('');
-      if (fields.length > 12) fields.length = 12;
-      return fields.join('\t');
-    });
-
-    const text = lines.join('\r\n') + '\r\n';
+  // Construir cada archivo y medir su peso real
+  const partTotal = String(groups.length).padStart(2, '0');
+  const files = groups.map((slice, c) => {
+    const text = slice.map((r, i) => rowToLine(r, i + 1)).join('\r\n') + '\r\n';
     const bytes = encodeFlat(text);
-    const blob = new Blob([bytes], {type: 'text/plain'});
-    const partNum = String(c + 1).padStart(2, '0');
-    const partTotal = String(numChunks).padStart(2, '0');
-    const filename = `${baseName}_parte${partNum}_de${partTotal}.txt`;
-    setTimeout(() => downloadBlob(blob, filename), c * 400); // espaciado para que el navegador no bloquee descargas múltiples
-  }
+    return {
+      name: `${baseName}_parte${String(c + 1).padStart(2, '0')}_de${partTotal}.txt`,
+      rows: slice.length,
+      bytes: bytes.length,
+      blob: new Blob([bytes], {type: 'text/plain'}),
+    };
+  });
 
-  alert(`Descargando ${numChunks} archivos. Súbelos a DentOS en orden:\n  ${baseName}_parte01_deXX.txt\n  ${baseName}_parte02_deXX.txt\n  ...`);
+  const detail = files.map(f => `  ${f.name}  —  ${f.rows} filas, ${fmtMB(f.bytes)}`).join('\n');
+  if (!confirm(`Se generarán ${files.length} archivos (máx. ${maxRows} filas y ${maxMB} MB cada uno):\n\n${detail}\n\nTotal: ${S.rows.length} filas.\n\n¿Continuar?`)) return;
+
+  // espaciado para que el navegador no bloquee las descargas múltiples
+  files.forEach((f, c) => setTimeout(() => downloadBlob(f.blob, f.name), c * 400));
+
+  alert(`Descargando ${files.length} archivos. Súbelos a DentOS en orden:\n\n${detail}`);
+}
+
+// Una fila del TXT: 12 columnas exactas separadas por tab.
+// DentOS valida estrictamente que TODA fila tenga 12 columnas.
+function rowToLine(r, num) {
+  const fields = [
+    num,
+    r.doc_pac, r.doc_dr, r.tipo, r.detalle, r.fecha,
+    r.h_inicio, r.h_fin, r.h_llegada, r.objetivo,
+    r.dr_defecto, r.consecutivo,
+  ].map(ultraClean);
+  while (fields.length < 12) fields.push('');
+  if (fields.length > 12) fields.length = 12;
+  return fields.join('\t');
+}
+
+function fmtMB(bytes) {
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
 }
 
 // Detecta filas duplicadas (mismo contenido excepto la columna Fila)
