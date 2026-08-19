@@ -591,9 +591,18 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
 
       <div class="export-row">
         <label>Archivo de evoluciones:</label>
-        <input type="text" id="exp-name-data" value="evoluciones_dentos">
+        <input type="text" id="exp-name-data" value="evoluciones_dentos" oninput="updateNamePreview()">
         <span class="ext">.txt</span>
         <button class="btn btn-success" onclick="exportData()">⬇ Exportar todo en 1 archivo</button>
+      </div>
+      <div class="export-row" style="margin-top:10px;">
+        <label>Nombre único:</label>
+        <label style="min-width:0;font-weight:400;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="exp-stamp" checked style="width:auto;" onchange="updateNamePreview()">
+          Agregar fecha y hora al nombre
+        </label>
+        <span class="ext" id="exp-stamp-preview" style="font-family:monospace;"></span>
+        <small style="display:block;margin-top:6px;color:#666;">Si descargas dos veces el mismo nombre, Chrome guarda el segundo como <code>evoluciones_dentos (1).txt</code> y DentOS lo rechaza por el espacio y los paréntesis. Con esta opción cada archivo sale con nombre distinto y Chrome nunca agrega el <code>(1)</code>.</small>
       </div>
       <div class="export-row" style="margin-top:10px;">
         <label>Codificación del .txt:</label>
@@ -1452,6 +1461,7 @@ function renderFindings(container) {
    STEP 3 → 4
 ============================================================ */
 function prepareExport() {
+  updateNamePreview();
   // Añadir duplicados a findings antes de renderizar
   const lines = S.rows.map(r => [
     r.doc_pac, r.doc_dr, r.tipo, r.detalle, r.fecha,
@@ -1753,8 +1763,7 @@ function exportOnePatient(docPac) {
   const text = lines.join('\r\n') + '\r\n';
   const bytes = encodeFlat(text);
   const blob = new Blob([bytes], { type: 'text/plain' });
-  const safeName = safeFileName(docPac, 'paciente');
-  downloadBlob(blob, `prueba_paciente_${safeName}.txt`);
+  downloadBlob(blob, outFileName('prueba_paciente_' + safeFileName(docPac, 'paciente'), 'prueba_paciente'));
 }
 
 function exportData() {
@@ -1792,7 +1801,7 @@ function exportData() {
   }
 
   // Nombre sin espacios, acentos ni puntos intermedios (ver safeFileName)
-  const name = safeFileName(document.getElementById('exp-name-data').value, 'evoluciones_dentos') + '.txt';
+  const name = outFileName(document.getElementById('exp-name-data').value, 'evoluciones_dentos');
   // Por defecto Windows-1252 (igual que Excel "Texto delimitado por tabulaciones")
   // y \r\n final como hace Excel
   const text = lines.join('\r\n') + '\r\n';
@@ -1807,7 +1816,8 @@ function exportChunks() {
 
   if (!S.rows.length) { alert('No hay filas para exportar.'); return; }
 
-  const baseName = safeFileName(document.getElementById('exp-name-data').value, 'evoluciones_dentos');
+  const baseName = safeFileName(document.getElementById('exp-name-data').value, 'evoluciones_dentos')
+    + (useStamp() ? '_' + stampSuffix() : '');
   const total = S.rows.length;
   const numChunks = Math.ceil(total / chunkSize);
 
@@ -1896,6 +1906,36 @@ function safeFileName(raw, fallback) {
     .replace(/_{2,}/g, '_')
     .replace(/^[_-]+|[_-]+$/g, '');
   return base || fallback;
+}
+
+// Sufijo AAMMDD_HHMM: cada descarga tiene un nombre distinto, asi Chrome nunca
+// renombra el archivo a "nombre (1).txt" (ese espacio y esos parentesis son
+// justamente lo que rechaza el validador de DentOS).
+function stampSuffix() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getFullYear() % 100)}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+
+function useStamp() {
+  const el = document.getElementById('exp-stamp');
+  return el ? el.checked : false;
+}
+
+// Nombre final que se le pasa al navegador (ya saneado y, si aplica, con sello).
+function outFileName(rawBase, fallback, extraSuffix) {
+  let name = safeFileName(rawBase, fallback);
+  if (useStamp()) name += '_' + stampSuffix();
+  if (extraSuffix) name += extraSuffix;
+  return name + '.txt';
+}
+
+// Muestra el nombre exacto con el que se va a descargar el archivo.
+function updateNamePreview() {
+  const el = document.getElementById('exp-stamp-preview');
+  if (!el) return;
+  const input = document.getElementById('exp-name-data');
+  el.textContent = '→ ' + outFileName(input ? input.value : '', 'evoluciones_dentos');
 }
 
 function stripAccents(str) {
@@ -2000,7 +2040,7 @@ function exportReport() {
     sep60,
   ];
 
-  const name = safeFileName(document.getElementById('exp-name-report').value, 'reporte_hallazgos') + '.txt';
+  const name = outFileName(document.getElementById('exp-name-report').value, 'reporte_hallazgos');
   const blob = new Blob([lines.join('\r\n')], {type: 'text/plain;charset=utf-8'});
   downloadBlob(blob, name);
 }
