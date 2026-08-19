@@ -596,6 +596,16 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
         <button class="btn btn-success" onclick="exportData()">⬇ Exportar todo en 1 archivo</button>
       </div>
       <div class="export-row" style="margin-top:10px;">
+        <label>Codificación del .txt:</label>
+        <select id="exp-encoding" style="max-width:300px;">
+          <option value="win1252">Windows-1252 (igual que Excel) — recomendado</option>
+          <option value="ascii">ASCII sin acentos (máxima compatibilidad)</option>
+          <option value="utf8">UTF-8 sin BOM</option>
+        </select>
+        <small style="display:block;margin-top:6px;color:#666;">Si DentOS responde <em>"El formato del archivo no es valido. Solo se permiten archivos planos de extensión .txt"</em>, vuelve a exportar con <strong>ASCII sin acentos</strong>: elimina cualquier byte que el validador pueda leer como binario.</small>
+      </div>
+
+      <div class="export-row" style="margin-top:10px;">
         <label>Partir en bloques:</label>
         <input type="number" id="exp-chunk-size" value="7500" min="100" max="20000" style="max-width:120px;">
         <span class="ext">filas/archivo</span>
@@ -1741,13 +1751,15 @@ function exportOnePatient(docPac) {
   });
 
   const text = lines.join('\r\n') + '\r\n';
-  const bytes = toWin1252(text);
+  const bytes = encodeFlat(text);
   const blob = new Blob([bytes], { type: 'text/plain' });
-  const safeName = docPac.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const safeName = safeFileName(docPac, 'paciente');
   downloadBlob(blob, `prueba_paciente_${safeName}.txt`);
 }
 
 function exportData() {
+  if (!S.rows.length) { alert('No hay filas para exportar.'); return; }
+
   const lines = S.rows.map((r, i) => {
     const fields = [
       i+1,
@@ -1779,11 +1791,12 @@ function exportData() {
     if (!ok) return;
   }
 
-  const name = (document.getElementById('exp-name-data').value.trim() || 'evoluciones_dentos') + '.txt';
-  // Codificar en Windows-1252 (igual que Excel "Texto delimitado por tabulaciones")
-  // y agregar \r\n final como hace Excel
+  // Nombre sin espacios, acentos ni puntos intermedios (ver safeFileName)
+  const name = safeFileName(document.getElementById('exp-name-data').value, 'evoluciones_dentos') + '.txt';
+  // Por defecto Windows-1252 (igual que Excel "Texto delimitado por tabulaciones")
+  // y \r\n final como hace Excel
   const text = lines.join('\r\n') + '\r\n';
-  const bytes = toWin1252(text);
+  const bytes = encodeFlat(text);
   const blob = new Blob([bytes], {type: 'text/plain'});
   downloadBlob(blob, name);
 }
@@ -1792,7 +1805,9 @@ function exportChunks() {
   const chunkSize = parseInt(document.getElementById('exp-chunk-size').value, 10) || 5000;
   if (chunkSize < 100) { alert('El tamaño mínimo es 100 filas'); return; }
 
-  const baseName = document.getElementById('exp-name-data').value.trim() || 'evoluciones_dentos';
+  if (!S.rows.length) { alert('No hay filas para exportar.'); return; }
+
+  const baseName = safeFileName(document.getElementById('exp-name-data').value, 'evoluciones_dentos');
   const total = S.rows.length;
   const numChunks = Math.ceil(total / chunkSize);
 
@@ -1831,7 +1846,7 @@ function exportChunks() {
     });
 
     const text = lines.join('\r\n') + '\r\n';
-    const bytes = toWin1252(text);
+    const bytes = encodeFlat(text);
     const blob = new Blob([bytes], {type: 'text/plain'});
     const partNum = String(c + 1).padStart(2, '0');
     const partTotal = String(numChunks).padStart(2, '0');
@@ -1860,6 +1875,73 @@ function checkDuplicates(lines) {
     count: dupes.length,
     samples: dupes.slice(0, 5).map(d => `${d.row} (igual a ${d.firstSeen})`),
   };
+}
+
+/* ------------------------------------------------------------
+   NOMBRE Y CODIFICACION DEL ARCHIVO PLANO
+   DentOS valida el archivo antes de importarlo. Dos cosas lo hacen
+   fallar con "solo se permiten archivos planos de extension .txt":
+     - un nombre con puntos, espacios o acentos (varios validadores
+       cortan la extension en el PRIMER punto: "evol 19.08_parte01.txt"
+       queda como extension "08_parte01" y se rechaza).
+     - bytes que el servidor no puede leer como texto.
+   safeFileName() normaliza lo primero; encodeFlat() lo segundo.
+------------------------------------------------------------ */
+function safeFileName(raw, fallback) {
+  const base = String(raw ?? '')
+    .trim()
+    .replace(/\.txt$/i, '')                             // evitar "archivo.txt.txt"
+    .normalize('NFD').replace(/[\u0300-\u036F]/g, '')    // quitar acentos
+    .replace(/[^A-Za-z0-9_-]+/g, '_')                   // espacios, puntos y simbolos -> _
+    .replace(/_{2,}/g, '_')
+    .replace(/^[_-]+|[_-]+$/g, '');
+  return base || fallback;
+}
+
+function stripAccents(str) {
+  return String(str).normalize('NFD').replace(/[\u0300-\u036F]/g, '');
+}
+
+// Comillas tipograficas, guiones largos y demas puntuacion "de Word" a ASCII.
+// En Windows-1252 esos caracteres caen en el rango 0x80-0x9F, que casi todos los
+// detectores de tipo de archivo (Tika, finfo, file) leen como binario: basta un
+// guion largo en una evolucion para que el servidor diga que el .txt no es plano.
+const SMART_PUNCT = {
+  '\u20AC':'EUR','\u201A':',','\u0192':'f','\u201E':'"','\u2026':'...',
+  '\u2020':'+','\u2021':'++','\u02C6':'^','\u2030':'%','\u0160':'S',
+  '\u2039':'<','\u0152':'OE','\u017D':'Z','\u2018':"'",'\u2019':"'",
+  '\u201C':'"','\u201D':'"','\u2022':'*','\u2013':'-','\u2014':'-',
+  '\u02DC':'~','\u2122':'(TM)','\u0161':'s','\u203A':'>','\u0153':'oe',
+  '\u017E':'z','\u0178':'Y','\u00A0':' ','\u2212':'-','\u2032':"'",
+  '\u2033':'"','\u00AD':''
+};
+function foldSmartPunct(str) {
+  return String(str).replace(/[\u00A0\u00AD\u0152\u0153\u0160\u0161\u0178\u017D\u017E\u0192\u02C6\u02DC\u2013\u2014\u2018\u2019\u201A\u201C\u201D\u201E\u2020\u2021\u2022\u2026\u2030\u2032\u2033\u2039\u203A\u20AC\u2122\u2212]/g,
+    ch => SMART_PUNCT[ch] !== undefined ? SMART_PUNCT[ch] : '?');
+}
+
+function selectedEncoding() {
+  const el = document.getElementById('exp-encoding');
+  return el ? el.value : 'win1252';
+}
+
+// Devuelve los bytes del archivo plano segun la codificacion elegida.
+function encodeFlat(text, enc) {
+  enc = enc || selectedEncoding();
+  const folded = foldSmartPunct(text);
+  if (enc === 'utf8') return new TextEncoder().encode(folded);   // sin BOM
+  if (enc === 'ascii') {
+    // Sin acentos y solo bytes imprimibles + TAB/CR/LF: no hay ningun byte
+    // >= 0x80, asi ningun detector de tipo puede confundirlo con un binario.
+    const clean = stripAccents(folded).replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '?');
+    return toWin1252(clean);
+  }
+  const bytes = toWin1252(folded);
+  // Red de seguridad: ningun byte del rango C1 (0x80-0x9F) sale del archivo.
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] >= 0x80 && bytes[i] <= 0x9F) bytes[i] = 0x3F;
+  }
+  return bytes;
 }
 
 // Codifica string JS (UTF-16 interno) a Windows-1252 (1 byte por caracter)
@@ -1918,19 +2000,23 @@ function exportReport() {
     sep60,
   ];
 
-  const name = (document.getElementById('exp-name-report').value.trim() || 'reporte_hallazgos') + '.txt';
+  const name = safeFileName(document.getElementById('exp-name-report').value, 'reporte_hallazgos') + '.txt';
   const blob = new Blob([lines.join('\r\n')], {type: 'text/plain;charset=utf-8'});
   downloadBlob(blob, name);
 }
 
 function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = filename;
+  a.rel = 'noopener';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
+  // Revocar de inmediato puede dejar el archivo truncado (o en 0 bytes) cuando
+  // el navegador todavia esta escribiendo el blob en disco.
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 /* ============================================================
