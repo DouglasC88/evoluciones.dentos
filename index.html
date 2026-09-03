@@ -4,34 +4,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Migrador de Evoluciones — DACP</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%230e0c08'/%3E%3Ccircle cx='32' cy='32' r='29' fill='none' stroke='%23D4A830' stroke-width='1.5' opacity='0.5'/%3E%3Ctext x='32' y='46' font-family='Georgia,serif' font-size='38' font-weight='700' text-anchor='middle' fill='%23D4A830'%3ED%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%232563EB'/%3E%3Ccircle cx='32' cy='32' r='29' fill='none' stroke='%23FFFFFF' stroke-width='1.5' opacity='0.5'/%3E%3Ctext x='32' y='46' font-family='Georgia,serif' font-size='38' font-weight='700' text-anchor='middle' fill='%23FFFFFF'%3ED%3C/text%3E%3C/svg%3E">
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <style>
 :root {
-  --primary:      #C8A53A;
-  --primary-dark: #A07C25;
-  --success:      #22c55e;
-  --warning:      #f59e0b;
-  --danger:       #ef4444;
-  --bg:           #0e0c08;
-  --bg-card:      #1a1810;
-  --bg-card2:     #221f14;
-  --border:       #3a3520;
-  --border-light: #2a2515;
-  --text:         #e8d8a0;
-  --text-muted:   #b8a060;
-  --text-faint:   #806840;
-  --gray-50:  #1a1810;
-  --gray-100: #221f14;
-  --gray-200: #3a3520;
-  --gray-300: #504830;
-  --gray-400: #806840;
-  --gray-500: #b0905a;
-  --gray-700: #d0b070;
-  --gray-900: #e8d8a0;
-  --gold-light: #F5E070;
-  --gold-mid:   #C8A53A;
-  --gold-dark:  #8B6914;
+  --primary:       #2563EB;
+  --primary-dark:  #1D4ED8;
+  --primary-light: #EFF6FF;
+  --success:      #059669;
+  --warning:      #D97706;
+  --danger:       #DC2626;
+  --bg:           #F6F9FE;
+  --bg-card:      #FFFFFF;
+  --bg-card2:     #F1F6FD;
+  --border:       #DCE6F5;
+  --border-light: #EEF3FB;
+  --text:         #0F1F3D;
+  --text-muted:   #5B7091;
+  --text-faint:   #8FA3BF;
+  --gray-50:  #F6F9FE;
+  --gray-100: #EEF3FB;
+  --gray-200: #DCE6F5;
+  --gray-300: #C3D4EC;
+  --gray-400: #8FA3BF;
+  --gray-500: #5B7091;
+  --gray-700: #334666;
+  --gray-900: #0F1F3D;
+  --brand-light: #60A5FA;
+  --brand-mid:   #2563EB;
+  --brand-dark:  #1D4ED8;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -41,26 +42,26 @@ body {
   min-height: 100vh;
 }
 header {
-  background: linear-gradient(105deg, #000000 0%, #1a1000 45%, #4a3200 75%, #8B6410 100%);
-  color: white;
+  background: var(--bg-card);
+  color: var(--text);
   padding: 1rem 2rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  box-shadow: 0 1px 3px rgba(15,31,61,0.07);
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  border-bottom: 1px solid #C8A53A55;
+  border-bottom: 1px solid var(--border);
 }
 header .header-text { flex: 1; }
-header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; color: #F0D878; }
-header p  { font-size: 0.78rem; color: #b0a080; margin-top: 0.2rem; }
+header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; color: var(--primary); }
+header p  { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
 .logo-brand {
   flex-shrink: 0;
-  filter: drop-shadow(0 2px 8px rgba(200,165,58,0.4));
+  filter: drop-shadow(0 2px 6px rgba(37,99,235,0.25));
   transition: transform 0.25s, filter 0.25s;
   cursor: default;
 }
 .logo-brand:hover {
-  filter: drop-shadow(0 4px 14px rgba(200,165,58,0.7));
+  filter: drop-shadow(0 4px 12px rgba(37,99,235,0.45));
   transform: scale(1.05);
 }
 .container { max-width: 1500px; margin: 0 auto; padding: 1.5rem 2rem; }
@@ -70,7 +71,7 @@ header p  { font-size: 0.78rem; color: #b0a080; margin-top: 0.2rem; }
   display: flex;
   background: var(--bg-card);
   border-radius: 0.75rem;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.4);
+  box-shadow: 0 1px 3px rgba(15,31,61,0.06);
   overflow: hidden;
   margin-bottom: 1.5rem;
   border: 1px solid var(--border);
@@ -88,9 +89,9 @@ header p  { font-size: 0.78rem; color: #b0a080; margin-top: 0.2rem; }
 .step:last-child { border-right: none; }
 .step .step-num { font-weight: 800; font-size: 1.1rem; }
 .step .step-label { font-size: 0.72rem; margin-top: 0.2rem; color: var(--text-faint); }
-.step.active { background: var(--primary); color: #0e0c08; }
-.step.active .step-label { color: rgba(14,12,8,0.7); }
-.step.done { background: #252010; }
+.step.active { background: var(--primary); color: #FFFFFF; }
+.step.active .step-label { color: rgba(255,255,255,0.85); }
+.step.done { background: var(--primary-light); }
 .step.done .step-num { color: var(--primary); }
 
 /* SECTIONS */
@@ -101,7 +102,7 @@ header p  { font-size: 0.78rem; color: #b0a080; margin-top: 0.2rem; }
 .card {
   background: var(--bg-card);
   border-radius: 0.75rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 8px rgba(15,31,61,0.06);
   padding: 1.5rem;
   margin-bottom: 1.25rem;
   border: 1px solid var(--border);
@@ -127,7 +128,7 @@ header p  { font-size: 0.78rem; color: #b0a080; margin-top: 0.2rem; }
 }
 .upload-zone:hover, .upload-zone.drag-over {
   border-color: var(--primary);
-  background: #2a2510;
+  background: var(--primary-light);
 }
 .upload-zone .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
 .upload-zone p { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem; }
@@ -151,7 +152,7 @@ header p  { font-size: 0.78rem; color: #b0a080; margin-top: 0.2rem; }
 .btn-primary { background: var(--primary); color: white; }
 .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
 .btn-success { background: var(--success); color: white; }
-.btn-success:hover:not(:disabled) { background: #15803d; }
+.btn-success:hover:not(:disabled) { background: #047857; }
 .btn-warning { background: var(--warning); color: white; }
 .btn-warning:hover:not(:disabled) { background: #b45309; }
 .btn-danger { background: var(--danger); color: white; }
@@ -173,12 +174,12 @@ select, input[type="text"] {
 select:focus, input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(200,165,58,0.15);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
 }
 
 /* TAGS */
-.tag-req { background: #2a0808; color: #f87171; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 0.68rem; font-weight: 700; }
-.tag-auto { background: #082a12; color: #4ade80; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 0.68rem; font-weight: 700; }
+.tag-req { background: #FEE2E2; color: #B91C1C; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 0.68rem; font-weight: 700; }
+.tag-auto { background: #ECFDF5; color: #047857; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 0.68rem; font-weight: 700; }
 
 /* MAPPING */
 .map-grid {
@@ -200,11 +201,11 @@ select:focus, input:focus {
 .map-arrow { text-align: center; color: var(--gray-400); font-size: 1.1rem; }
 .map-auto-val {
   padding: 0.5rem 0.75rem;
-  background: #0a2015;
-  border: 1px solid #2a6040;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
   border-radius: 0.375rem;
   font-size: 0.8rem;
-  color: #4ade80;
+  color: #047857;
 }
 
 /* STATS */
@@ -235,7 +236,7 @@ select:focus, input:focus {
 table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
 thead { position: sticky; top: 0; z-index: 10; }
 th {
-  background: #1e3a5f;
+  background: var(--primary);
   color: white;
   padding: 0.6rem 0.5rem;
   text-align: left;
@@ -243,14 +244,14 @@ th {
   white-space: nowrap;
   font-size: 0.74rem;
 }
-th.col-auto { background: #134e3f; }
+th.col-auto { background: #047857; }
 td {
   padding: 0.3rem 0.4rem;
   border-bottom: 1px solid var(--gray-100);
   vertical-align: middle;
 }
-tr:hover td { background: #252010; }
-tr.row-selected td { background: #352d10 !important; }
+tr:hover td { background: var(--primary-light); }
+tr.row-selected td { background: #DBEAFE !important; }
 td input[type="text"], td select {
   padding: 0.2rem 0.4rem;
   font-size: 0.76rem;
@@ -260,8 +261,8 @@ td input[type="text"], td select {
   width: 100%;
   min-width: 0;
 }
-td input[type="text"]:hover, td select:hover { border-color: var(--gray-300); background: #252010; }
-td input[type="text"]:focus, td select:focus { border-color: var(--primary); background: #1d1a0c; box-shadow: none; }
+td input[type="text"]:hover, td select:hover { border-color: var(--gray-300); background: var(--primary-light); }
+td input[type="text"]:focus, td select:focus { border-color: var(--primary); background: #FFFFFF; box-shadow: none; }
 
 /* TYPE BUTTONS */
 .type-mass-bar {
@@ -314,9 +315,9 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
   font-size: 0.83rem;
   align-items: flex-start;
 }
-.finding-warning { background: #201c08; border-left: 3px solid var(--warning); }
-.finding-info    { background: #0c1828; border-left: 3px solid var(--primary); }
-.finding-success { background: #0a1e10; border-left: 3px solid var(--success); }
+.finding-warning { background: #FFFBEB; border-left: 3px solid var(--warning); }
+.finding-info    { background: var(--primary-light); border-left: 3px solid var(--primary); }
+.finding-success { background: #ECFDF5; border-left: 3px solid var(--success); }
 
 /* EXPORT */
 .export-row {
@@ -336,7 +337,7 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
 /* MODAL */
 .modal-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: rgba(15,31,61,0.45);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
 }
@@ -348,7 +349,7 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
   width: 520px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 25px 60px rgba(0,0,0,0.7);
+  box-shadow: 0 25px 60px rgba(15,31,61,0.22);
 }
 .modal h3 { margin-bottom: 1rem; font-size: 1.05rem; }
 .doctor-list { max-height: 320px; overflow-y: auto; margin-top: 0.75rem; }
@@ -373,8 +374,8 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
   font-size: 0.875rem;
   margin-bottom: 0.75rem;
 }
-.alert-success { background: #0a2015; color: #4ade80; border: 1px solid #2a6040; }
-.alert-warning { background: #201608; color: #f0c060; border: 1px solid #6a4810; }
+.alert-success { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+.alert-warning { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
 .divider { display: flex; align-items: center; gap: 0.75rem; margin: 1.5rem 0; }
 .divider hr { flex: 1; border: none; border-top: 1px solid var(--gray-200); }
 .divider span { font-size: 0.75rem; color: var(--gray-400); white-space: nowrap; }
@@ -389,44 +390,44 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
 <header>
   <svg class="logo-brand" width="210" height="64" viewBox="0 0 210 64" xmlns="http://www.w3.org/2000/svg" aria-label="DACP Migraciones DC">
     <defs>
-      <linearGradient id="gGold" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%"   stop-color="#F5E070"/>
-        <stop offset="45%"  stop-color="#D4A830"/>
-        <stop offset="100%" stop-color="#8B6410"/>
+      <linearGradient id="gBrand" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#60A5FA"/>
+        <stop offset="45%"  stop-color="#2563EB"/>
+        <stop offset="100%" stop-color="#1D4ED8"/>
       </linearGradient>
-      <linearGradient id="gGold2" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%"   stop-color="#F0D878"/>
-        <stop offset="100%" stop-color="#A07820"/>
+      <linearGradient id="gBrand2" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%"   stop-color="#3B82F6"/>
+        <stop offset="100%" stop-color="#1E40AF"/>
       </linearGradient>
     </defs>
 
     <!-- ── D ── -->
     <text x="2" y="40" font-family="Georgia,'Times New Roman',serif"
-          font-size="32" font-weight="700" fill="url(#gGold)">D</text>
+          font-size="32" font-weight="700" fill="url(#gBrand)">D</text>
 
     <!-- ── línea D → A ── -->
-    <line x1="26" y1="27" x2="52" y2="27" stroke="#D4A830" stroke-width="0.9" stroke-dasharray="2,2.5" opacity="0.6"/>
+    <line x1="26" y1="27" x2="52" y2="27" stroke="#2563EB" stroke-width="0.9" stroke-dasharray="2,2.5" opacity="0.6"/>
 
     <!-- ── A (mismo font que D y CP) ── -->
     <text x="52" y="40" font-family="Georgia,'Times New Roman',serif"
-          font-size="32" font-weight="700" fill="url(#gGold)">A</text>
+          font-size="32" font-weight="700" fill="url(#gBrand)">A</text>
     <!-- señal sobre el apex de la A (apex ~x=64, y=17) -->
-    <circle cx="64" cy="15" r="2" fill="url(#gGold)"/>
-    <path d="M60,12 Q64,7 68,12" fill="none" stroke="url(#gGold)" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M57,9  Q64,3 71,9"  fill="none" stroke="url(#gGold)" stroke-width="1.3" stroke-linecap="round" opacity="0.75"/>
+    <circle cx="64" cy="15" r="2" fill="url(#gBrand)"/>
+    <path d="M60,12 Q64,7 68,12" fill="none" stroke="url(#gBrand)" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M57,9  Q64,3 71,9"  fill="none" stroke="url(#gBrand)" stroke-width="1.3" stroke-linecap="round" opacity="0.75"/>
 
     <!-- ── línea A → CP ── -->
-    <line x1="76" y1="27" x2="98" y2="27" stroke="#D4A830" stroke-width="0.9" stroke-dasharray="2,2.5" opacity="0.6"/>
+    <line x1="76" y1="27" x2="98" y2="27" stroke="#2563EB" stroke-width="0.9" stroke-dasharray="2,2.5" opacity="0.6"/>
 
     <!-- ── CP ── -->
     <text x="98" y="40" font-family="Georgia,'Times New Roman',serif"
-          font-size="32" font-weight="700" fill="url(#gGold)">CP</text>
+          font-size="32" font-weight="700" fill="url(#gBrand)">CP</text>
 
     <!-- ── MIGRACIONES DC ── -->
     <text x="78" y="57" text-anchor="middle"
           font-family="Georgia,'Times New Roman',serif"
           font-size="9.5" font-weight="600" letter-spacing="3"
-          fill="url(#gGold)" opacity="0.90">MIGRACIONES DC</text>
+          fill="url(#gBrand)" opacity="0.90">MIGRACIONES DC</text>
   </svg>
 
   <div class="header-text">
@@ -577,7 +578,7 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
         <button class="btn btn-outline" onclick="togglePatientSummary()">Ver / ocultar resumen</button>
         <span id="sort-status" style="font-size:0.85rem;color:var(--gray-600);"></span>
       </div>
-      <small style="display:block;margin-top:6px;color:#666;">Al ordenar, las evoluciones del mismo paciente quedan juntas y la columna "Fila" se renumera al exportar.</small>
+      <small style="display:block;margin-top:6px;color:var(--gray-500);">Al ordenar, las evoluciones del mismo paciente quedan juntas y la columna "Fila" se renumera al exportar.</small>
       <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.75rem;">
         <input type="text" id="pac-search" placeholder="Buscar por número de documento..." oninput="filterPatientSummary()" style="max-width:320px;flex:1;">
         <button class="btn btn-outline btn-sm" onclick="removePatientFromSearch()" id="btn-remove-search" style="display:none;">🗑 Eliminar este paciente</button>
@@ -602,7 +603,7 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
           Agregar fecha y hora al nombre
         </label>
         <span class="ext" id="exp-stamp-preview" style="font-family:monospace;"></span>
-        <small style="display:block;margin-top:6px;color:#666;">Si descargas dos veces el mismo nombre, Chrome guarda el segundo como <code>evoluciones_dentos (1).txt</code> y DentOS lo rechaza por el espacio y los paréntesis. Con esta opción cada archivo sale con nombre distinto y Chrome nunca agrega el <code>(1)</code>.</small>
+        <small style="display:block;margin-top:6px;color:var(--gray-500);">Si descargas dos veces el mismo nombre, Chrome guarda el segundo como <code>evoluciones_dentos (1).txt</code> y DentOS lo rechaza por el espacio y los paréntesis. Con esta opción cada archivo sale con nombre distinto y Chrome nunca agrega el <code>(1)</code>.</small>
       </div>
       <div class="export-row" style="margin-top:10px;">
         <label>Codificación del .txt:</label>
@@ -611,7 +612,7 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
           <option value="ascii">ASCII sin acentos (máxima compatibilidad)</option>
           <option value="utf8">UTF-8 sin BOM</option>
         </select>
-        <small style="display:block;margin-top:6px;color:#666;">Si DentOS responde <em>"El formato del archivo no es valido. Solo se permiten archivos planos de extensión .txt"</em>, vuelve a exportar con <strong>ASCII sin acentos</strong>: elimina cualquier byte que el validador pueda leer como binario.</small>
+        <small style="display:block;margin-top:6px;color:var(--gray-500);">Si DentOS responde <em>"El formato del archivo no es valido. Solo se permiten archivos planos de extensión .txt"</em>, vuelve a exportar con <strong>ASCII sin acentos</strong>: elimina cualquier byte que el validador pueda leer como binario.</small>
       </div>
 
       <div class="export-row" style="margin-top:10px;">
@@ -621,7 +622,7 @@ td input[type="text"]:focus, td select:focus { border-color: var(--primary); bac
         <input type="number" id="exp-chunk-mb" value="1.5" min="0.1" max="20" step="0.1" style="max-width:90px;">
         <span class="ext">MB máx.</span>
         <button class="btn btn-success" onclick="exportChunks()">⬇ Exportar por bloques</button>
-        <small style="display:block;margin-top:6px;color:#666;">DentOS rechaza el archivo con el mensaje <em>"formato no válido"</em> cuando pesa más de lo que acepta el servidor (~2 MB, límite de PHP). Corta por el primero de los dos límites que se alcance; el que manda casi siempre es el de MB. Si sigue fallando, baja a 1.0 MB.</small>
+        <small style="display:block;margin-top:6px;color:var(--gray-500);">DentOS rechaza el archivo con el mensaje <em>"formato no válido"</em> cuando pesa más de lo que acepta el servidor (~2 MB, límite de PHP). Corta por el primero de los dos límites que se alcance; el que manda casi siempre es el de MB. Si sigue fallando, baja a 1.0 MB.</small>
       </div>
 
       <div class="export-row">
@@ -1423,7 +1424,7 @@ function renderFindings(container) {
         const r = S.rows[dupIdx];
         const det = ultraClean(r ? r.detalle || '' : '').substring(0, 60);
         return `<tr style="border-bottom:1px solid #fecaca;">
-          <td style="padding:5px 10px;color:#b91c1c;font-weight:600;white-space:nowrap;">Fila ${dupIdx+1} <small style="color:#888;">(= ${keepIdx+1})</small></td>
+          <td style="padding:5px 10px;color:#b91c1c;font-weight:600;white-space:nowrap;">Fila ${dupIdx+1} <small style="color:var(--gray-500);">(= ${keepIdx+1})</small></td>
           <td style="padding:5px 10px;font-family:monospace;">${esc(r ? r.doc_pac : '')}</td>
           <td style="padding:5px 10px;white-space:nowrap;">${esc(r ? r.fecha : '')}</td>
           <td style="padding:5px 10px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(det)}…</td>
@@ -1583,7 +1584,7 @@ function togglePatientSummary() {
   });
 
   html += `</tbody></table></div>
-  <small style="display:block;margin-top:8px;color:#888;">💡 Flujo seguro: exporta 1 paciente con "⬇ Prueba", verifica en DentOS, luego "🗑 Eliminar" para sacarlo del listado antes de exportar el resto.</small>`;
+  <small style="display:block;margin-top:8px;color:var(--gray-500);">💡 Flujo seguro: exporta 1 paciente con "⬇ Prueba", verifica en DentOS, luego "🗑 Eliminar" para sacarlo del listado antes de exportar el resto.</small>`;
   el.innerHTML = html;
   el.classList.remove('hidden');
 }
@@ -1670,7 +1671,7 @@ function showDuplicatesPanel() {
     const r = S.rows[dupIdx];
     const det = ultraClean(r.detalle || '').substring(0, 60);
     html += `<tr style="border-bottom:1px solid #fecaca;">
-      <td style="padding:5px 10px;color:#b91c1c;font-weight:600;">Fila ${dupIdx + 1} <small style="color:#888;">(= ${keepIdx + 1})</small></td>
+      <td style="padding:5px 10px;color:#b91c1c;font-weight:600;">Fila ${dupIdx + 1} <small style="color:var(--gray-500);">(= ${keepIdx + 1})</small></td>
       <td style="padding:5px 10px;font-family:monospace;">${esc(r.doc_pac)}</td>
       <td style="padding:5px 10px;">${esc(r.fecha)}</td>
       <td style="padding:5px 10px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(det)}…</td>
